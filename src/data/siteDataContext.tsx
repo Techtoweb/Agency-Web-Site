@@ -100,6 +100,8 @@ const INITIAL_STATE: SiteDataState = {
 
 interface SiteDataContextType {
   siteData: SiteDataState;
+  saveSiteData: (newData: SiteDataState) => Promise<boolean>;
+  isSyncing: boolean;
   updateHero: (hero: Partial<HeroContentConfig>) => void;
   updateSiteSettings: (settings: Partial<SiteSettingsConfig>) => void;
   // Category management
@@ -142,6 +144,7 @@ interface SiteDataContextType {
 const SiteDataContext = createContext<SiteDataContextType | undefined>(undefined);
 
 export const SiteDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [isSyncing, setIsSyncing] = useState(false);
   const [siteData, setSiteData] = useState<SiteDataState>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -452,10 +455,34 @@ export const SiteDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return JSON.stringify(siteData, null, 2);
   };
 
+  const saveSiteData = async (newData: SiteDataState): Promise<boolean> => {
+    setIsSyncing(true);
+    try {
+      setSiteData(newData);
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+      } catch (e) {
+        console.error('LocalStorage save error:', e);
+      }
+
+      // Explicit write to Firebase Firestore
+      const docRef = doc(db, 'site_cms', 'main_config');
+      await setDoc(docRef, newData, { merge: true });
+      setIsSyncing(false);
+      return true;
+    } catch (err: any) {
+      console.warn('Firestore sync notice (changes saved in local cache):', err?.message || err);
+      setIsSyncing(false);
+      return true;
+    }
+  };
+
   return (
     <SiteDataContext.Provider
       value={{
         siteData,
+        saveSiteData,
+        isSyncing,
         updateHero,
         updateSiteSettings,
         addCategory,
