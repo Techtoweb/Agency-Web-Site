@@ -32,6 +32,10 @@ export interface SubServiceItem {
   tags: string[];
   icon: string;
   deliverables: string[];
+  price?: string;
+  deliveryTime?: string;
+  pricingType?: 'fixed' | 'starting' | 'monthly' | 'hourly' | 'custom';
+  badge?: string;
 }
 
 export interface ServiceCategoryDetail {
@@ -46,6 +50,8 @@ export interface ServiceCategoryDetail {
   description: string;
   image: string;
   stats: { label: string; value: string };
+  startingPrice?: string;
+  deliveryTime?: string;
   subServices: SubServiceItem[];
 }
 
@@ -62,6 +68,8 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
     description: 'Enterprise-grade Shopify and Shopify Plus e-commerce solutions built for high-volume merchants. From bespoke liquid themes and Hydrogen headless builds to automated backend syncing.',
     image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCm5CCzsVPK3KCJg7rHQzYqIJvDd2Fgd32Gk7E6EVVCB8iCLlKTEpr51Up5e2wagV9ctaPTm-wNp3bTXUJramnU4XBajLIIUsiPEC0_P-jDMml4eZfzfezmObgTvpYQCuigtUQfEictdjnmtIDGCjmzWAdhwywKMTtdmazXgpaE50Basc5GbhfBHX2AC5dI30I-lLGA87d2nA4v6s7jCvsAkKa9TK_KadVSEe7rDt4ZyLeUfl-Rsc2k',
     stats: { label: 'Avg GMV Lift', value: '+142%' },
+    startingPrice: '$199',
+    deliveryTime: '3-7 Days',
     subServices: [
       {
         id: 'shopify-store-design',
@@ -69,6 +77,10 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
         desc: 'Bespoke, conversion-focused UI/UX tailored to your brand identity with custom typography, intuitive navigation, and high-converting product pages.',
         tags: ['Custom UI/UX', 'Figma to Shopify', 'Mobile-First', 'Brand Identity'],
         icon: 'Layout',
+        price: '$299',
+        deliveryTime: '3-5 Days',
+        pricingType: 'starting',
+        badge: 'Popular',
         deliverables: ['Custom Figma Prototype', 'Design System & Component Library', 'Responsive Mobile Layouts', 'Brand Asset Guide']
       },
       {
@@ -77,6 +89,10 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
         desc: 'Custom Liquid & Hydrogen 2.0 headless architecture engineered for sub-second speeds, modular customization, and effortless scalability.',
         tags: ['Liquid & JSON', 'Hydrogen 2.0', 'Headless Storefront', 'Oxygen Edge Hosting'],
         icon: 'Code2',
+        price: '$499',
+        deliveryTime: '5-7 Days',
+        pricingType: 'starting',
+        badge: 'Best Value',
         deliverables: ['Clean Semantic Codebase', 'Fast TTFB (<200ms)', 'Modular Section Builder', 'Git Version Control']
       },
       {
@@ -85,6 +101,9 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
         desc: 'Fine-tuning existing themes (Dawn, Prestige, Warehouse, Impulse) with tailored liquid sections, custom drawer carts, and micro-interactions.',
         tags: ['Theme 2.0', 'Custom Sections', 'Drawer Cart', 'Micro-Interactions'],
         icon: 'Sliders',
+        price: '$199',
+        deliveryTime: '2-3 Days',
+        pricingType: 'fixed',
         deliverables: ['Custom Drag-and-Drop Blocks', 'Ajax Cart & Upsell Flow', 'Custom PDP Accordions', 'Speed Optimization']
       },
       {
@@ -93,6 +112,9 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
         desc: 'End-to-end launch readiness including Stripe/PayPal gateways, multi-currency geo-markets, dynamic shipping matrices, and tax compliance.',
         tags: ['Shopify Markets', 'Payment Gateways', 'Tax Compliance', 'Shipping Rules'],
         icon: 'Settings',
+        price: '$249',
+        deliveryTime: '3-4 Days',
+        pricingType: 'fixed',
         deliverables: ['Multi-currency Setup', 'Stripe & PayPal Integration', 'Automated Email Templates', 'Domain & SSL Verification']
       },
       {
@@ -101,6 +123,9 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
         desc: 'Structured inventory management, variant matrices, smart automated collections, meta-fields, and bulk CSV/API synchronization.',
         tags: ['Metafields', 'Variant Matrix', 'Smart Collections', 'Bulk Import/Export'],
         icon: 'Layers',
+        price: '$149',
+        deliveryTime: '2 Days',
+        pricingType: 'starting',
         deliverables: ['Normalized Taxonomy', 'Custom Metafield Definitions', 'SEO-friendly URLs', 'Variant Image Matrix']
       },
       {
@@ -109,6 +134,10 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
         desc: 'Core Web Vitals tuning, checkout funnel friction reduction, dynamic 1-click buy buttons, and intelligent product recommendation engines.',
         tags: ['Core Web Vitals', 'CRO Audits', 'A/B Testing', 'Sub-second Load'],
         icon: 'Zap',
+        price: '$299',
+        deliveryTime: '3 Days',
+        pricingType: 'fixed',
+        badge: 'Top Rated',
         deliverables: ['95+ Mobile Lighthouse Score', 'Optimized Checkout Path', 'Asset Compression Pipeline', 'A/B Test Roadmap']
       },
       {
@@ -117,6 +146,9 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
         desc: 'Seamless integration with Klaviyo, Gorgias, Recharge subscriptions, ERPs, and bespoke private Shopify apps using GraphQL Admin API.',
         tags: ['Admin GraphQL API', 'Klaviyo / Recharge', 'Private Custom Apps', 'Webhooks'],
         icon: 'Cpu',
+        price: '$349',
+        deliveryTime: '4-5 Days',
+        pricingType: 'starting',
         deliverables: ['Clean App Embed Architecture', 'Custom Webhook Listeners', 'Zero-conflict Scripting', 'ERP/CRM Data Sync']
       },
       {
@@ -125,6 +157,9 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
         desc: 'Zero-downtime database migration from WooCommerce, Magento, BigCommerce, or custom platforms with complete 301 redirect SEO safety.',
         tags: ['Zero Downtime', '301 SEO Safeguard', 'Order History Sync', 'Customer Data Export'],
         icon: 'ArrowRightLeft',
+        price: '$399',
+        deliveryTime: '4-6 Days',
+        pricingType: 'starting',
         deliverables: ['100% Data Integrity Guarantee', 'Automated 301 Redirect Matrix', 'Preserved Organic Rankings', 'Customer Password Reset Funnel']
       }
     ]
@@ -141,6 +176,8 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
     description: 'Modern, high-performance web applications, custom digital platforms, and responsive interfaces engineered with React, Next.js, TypeScript, and modern APIs.',
     image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBfl0wcWJOJAcgh736AoMGs9-1HoMXkoTCPLQm7qw07IXu56ZmUueuza3a_wyPbxu9TtNhA7EPpIEd2Kmr0TxU4pqZstPnVAz9HfV-7Kf5IYg04Sn2hxub9guPt0x6kjbchs2B6Sdi9jacZ-S05SS4uGr9YlKKgMj3fZOG4hFlgcRCx4GlJ-RhLU_pbDCopgD98IeclowJJrL8R5JQB5lfdXlz8-q87I0x9V8ZsSNA2atXfaStRXebL',
     stats: { label: 'Lighthouse Score', value: '99/100' },
+    startingPrice: '$249',
+    deliveryTime: '4-10 Days',
     subServices: [
       {
         id: 'ecommerce-website-dev',
@@ -148,6 +185,10 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
         desc: 'Custom multi-vendor marketplaces, B2B wholesale portals, and bespoke D2C shopping platforms engineered for ultra-high transaction volume.',
         tags: ['Multi-Vendor', 'B2B Wholesale', 'Stripe Connect', 'Real-time Inventory'],
         icon: 'ShoppingBag',
+        price: '$699',
+        deliveryTime: '7-12 Days',
+        pricingType: 'starting',
+        badge: 'Enterprise',
         deliverables: ['Custom Shopping Cart & Checkout', 'Admin Vendor Dashboard', 'Automated Invoicing Engine', 'Multi-tenant Security']
       },
       {
@@ -156,6 +197,10 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
         desc: 'Tailored single-page applications (SPAs) and Progressive Web Apps (PWAs) built with React 19, Next.js App Router, and serverless backends.',
         tags: ['React 19', 'Next.js App Router', 'TypeScript', 'Serverless APIs'],
         icon: 'Laptop',
+        price: '$599',
+        deliveryTime: '7-10 Days',
+        pricingType: 'starting',
+        badge: 'Popular',
         deliverables: ['Type-safe Full-Stack Logic', 'Modular Component Architecture', 'PWA Offline Capabilities', 'Role-Based Access Control']
       },
       {
@@ -164,6 +209,9 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
         desc: 'Corporate enterprise portals with bespoke branding, intuitive CMS integrations (Sanity/Strapi), multi-lingual support, and lead capture funnels.',
         tags: ['Corporate Portal', 'Headless CMS', 'Lead Generation', 'Security Hardened'],
         icon: 'Building2',
+        price: '$399',
+        deliveryTime: '5-7 Days',
+        pricingType: 'starting',
         deliverables: ['Custom CMS Authoring Hub', 'Dynamic Blog & Case Studies', 'Contact Lead Pipelines', 'Enterprise SLA Support']
       },
       {
@@ -172,6 +220,9 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
         desc: 'Avant-garde digital showcase websites featuring cinematic micro-interactions, smooth WebGL canvas shaders, and fluid typography.',
         tags: ['Creative Direction', 'WebGL Shaders', 'Smooth Scroll', 'Interactive Portfolios'],
         icon: 'Sparkles',
+        price: '$349',
+        deliveryTime: '4-6 Days',
+        pricingType: 'starting',
         deliverables: ['60fps Fluid Interactions', 'Award-Winning Aesthetics', 'Dynamic Media Showcases', 'Case Study Builder']
       },
       {
@@ -180,6 +231,10 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
         desc: 'High-velocity promotional landing funnels engineered with A/B testing variants, instant load times, and precision conversion triggers.',
         tags: ['High CRO', 'A/B Funnels', 'Heatmap Ready', 'Sub-second Load'],
         icon: 'Target',
+        price: '$249',
+        deliveryTime: '2-3 Days',
+        pricingType: 'fixed',
+        badge: 'Fast Delivery',
         deliverables: ['Instant (<1s) Load Performance', 'Pixel & Analytics Integration', 'Custom Form Validation', 'Dynamic Headline Swapping']
       },
       {
@@ -188,6 +243,9 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
         desc: 'Pixel-perfect fluidity across all viewports—from compact mobile screens and foldables to 4K ultra-wide monitors.',
         tags: ['Mobile First', 'Adaptive Layouts', 'Touch Optimized', 'Fluid Typography'],
         icon: 'Smartphone',
+        price: '$199',
+        deliveryTime: '2-4 Days',
+        pricingType: 'fixed',
         deliverables: ['Cross-Device Fluidity', 'Touch-friendly UI Targets', 'Retina Vector Graphics', 'Browser Compatibility Matrix']
       },
       {
@@ -196,6 +254,10 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
         desc: 'Sub-second TTFB, edge CDN distribution, asset minification, critical CSS inlining, and guaranteed 95+ Google Lighthouse scores.',
         tags: ['Core Web Vitals', 'Edge CDN', 'LCP / FID / CLS', 'Asset Compression'],
         icon: 'Zap',
+        price: '$220',
+        deliveryTime: '2-3 Days',
+        pricingType: 'fixed',
+        badge: 'Guaranteed 95+',
         deliverables: ['Green Lighthouse Scorecard', 'Image Next-Gen (AVIF/WebP)', 'Edge Caching Rules', 'Reduced Server TTFB']
       },
       {
@@ -204,6 +266,9 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
         desc: 'Scalable REST and GraphQL APIs, real-time WebSockets, cloud database integration (PostgreSQL / Firestore), and third-party webhook handling.',
         tags: ['GraphQL / REST', 'WebSockets', 'PostgreSQL / Node', 'OAuth 2.0'],
         icon: 'Database',
+        price: '$450',
+        deliveryTime: '4-7 Days',
+        pricingType: 'starting',
         deliverables: ['Documented Swagger/OpenAPI Spec', 'Secure Authentication & JWT', 'High-throughput Query Caching', 'Cloud Ingress Deployment']
       }
     ]
@@ -220,6 +285,8 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
     description: 'Data-driven performance marketing, multi-channel growth systems, creative ad testing, and paid media funnels engineered for maximum return on ad spend (ROAS).',
     image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDo6PqjZ7lOWQU5GvvrwrnhSnvInFx5AsdQ-bZNXF8hJEEuCZ4UXwyc-o8iPD7TBIrCbMovGjlK_-RjoLiCUIjPtu8y4bbfed9lWDQD0eAUTSoAOVwlCuSWWgRBaFH0lWO3Q7t0szICQiiaP7RsRGljPIpuuUMNt8GKWSYa3GjQpzYxyXQMt3hnXw87J7RqxMlHjatwir6H5L9hEL3LRar_R_Ry0vmNwMmkmrznLzWpsLI0F1QRNipD',
     stats: { label: 'Average ROAS', value: '4.4x' },
+    startingPrice: '$299/mo',
+    deliveryTime: 'Monthly Retainer',
     subServices: [
       {
         id: 'facebook-marketing',
@@ -227,6 +294,10 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
         desc: 'Advanced audience modeling, CBO scaling strategies, Advantage+ shopping campaigns, and Conversions API (CAPI) server-side tracking.',
         tags: ['Meta CAPI', 'Advantage+ Campaigns', 'Audience Modeling', 'CBO Scaling'],
         icon: 'Share2',
+        price: '$350/mo',
+        deliveryTime: 'Monthly Management',
+        pricingType: 'monthly',
+        badge: 'High ROAS',
         deliverables: ['Full-Funnel Campaign Setup', 'Server-Side CAPI Gateway', 'Custom & Lookalike Audiences', 'Weekly Performance Reports']
       },
       {
@@ -235,6 +306,9 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
         desc: 'Visual brand storytelling, high-engagement Reels content, shoppable Instagram feeds, and creator influencer amplification partnerships.',
         tags: ['Reels Growth', 'Shoppable Feed', 'Influencer Collabs', 'Visual Branding'],
         icon: 'Instagram',
+        price: '$299/mo',
+        deliveryTime: 'Monthly Retainer',
+        pricingType: 'monthly',
         deliverables: ['Monthly Content Matrix', 'Creator Outreach Management', 'Direct Message Automation', 'Shoppable Tag Optimization']
       },
       {
@@ -243,6 +317,9 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
         desc: 'Holistic cross-platform social presence across LinkedIn, X (Twitter), Pinterest, and TikTok with structured brand voice governance.',
         tags: ['Omnichannel', 'Content Calendars', 'Community Growth', 'Brand Voice'],
         icon: 'MessageSquare',
+        price: '$450/mo',
+        deliveryTime: 'Monthly Retainer',
+        pricingType: 'monthly',
         deliverables: ['30-Day Content Calendar', 'Creative Asset Production', 'Community Moderation Flow', 'Audience Sentiment Analytics']
       },
       {
@@ -251,6 +328,10 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
         desc: 'Rigorous 3-phase creative testing (Hooks, Body, CTAs), automated rule-based bid adjustments, and high-velocity dynamic retargeting.',
         tags: ['Ad Creative Testing', 'Dynamic Retargeting', 'High ROAS', 'Bid Strategies'],
         icon: 'PieChart',
+        price: '$399/mo',
+        deliveryTime: 'Monthly Retainer',
+        pricingType: 'monthly',
+        badge: 'Popular',
         deliverables: ['Iterative Video & Image Ad Sets', 'Ad Copywriting Variations', 'Retargeting Funnel Sequences', 'Real-Time ROI Dashboard']
       },
       {
@@ -259,6 +340,9 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
         desc: 'Full-funnel customer acquisition roadmaps, unit economics modeling (CAC vs. LTV), channel diversification, and retention frameworks.',
         tags: ['Full Funnel Roadmap', 'CAC / LTV Optimization', 'Attribution Modeling', 'Retention Loops'],
         icon: 'TrendingUp',
+        price: '$499',
+        deliveryTime: '7-10 Days',
+        pricingType: 'fixed',
         deliverables: ['Custom 90-Day Growth Blueprint', 'Unit Economics Financial Model', 'Multi-Touch Attribution', 'Executive Strategy Decks']
       },
       {
@@ -267,6 +351,9 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
         desc: 'Intent-driven YouTube In-Stream and Shorts ad campaigns, YouTube SEO keyword targeting, and creator sponsorship integration.',
         tags: ['In-Stream Video Ads', 'YouTube Shorts', 'Search Intent Targeting', 'Sponsorships'],
         icon: 'Video',
+        price: '$380/mo',
+        deliveryTime: 'Monthly Retainer',
+        pricingType: 'monthly',
         deliverables: ['Video Scripting Frameworks', 'Custom Thumbnail Design', 'Audience Placements & Exclusions', 'Cross-Device Conversion Tracking']
       },
       {
@@ -275,6 +362,10 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
         desc: 'Klaviyo and Omnisend automated lifecycle flows: Welcome Series, Abandoned Checkout, Post-Purchase Upsell, and VIP loyalty segments.',
         tags: ['Klaviyo Flows', 'Abandoned Cart', 'Lifecycle Segments', 'SMS Marketing'],
         icon: 'Mail',
+        price: '$320',
+        deliveryTime: '4-6 Days',
+        pricingType: 'starting',
+        badge: 'High Revenue',
         deliverables: ['Automated Revenue Flows', 'Responsive HTML Email Templates', 'List Hygiene & Deliverability', 'SMS Drip Sequences']
       },
       {
@@ -283,6 +374,9 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
         desc: 'User behavior heatmaps (Hotjar/Clarity), checkout friction audits, micro-copy testing, and multi-variant landing page optimization.',
         tags: ['Heatmap Analysis', 'Checkout CRO', 'Friction Audits', 'A/B Testing'],
         icon: 'BarChart3',
+        price: '$299',
+        deliveryTime: '5 Days',
+        pricingType: 'fixed',
         deliverables: ['Full Funnel Drop-off Analysis', 'Heuristic UX Audit Report', 'Live A/B Testing Execution', 'Measurable Conversion Uplift']
       }
     ]
@@ -299,6 +393,8 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
     description: 'Dominating search engine results through deep technical optimization, high-intent keyword mapping, authoritative content clusters, and natural link acquisition.',
     image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDB3EdmJtK_wvZdh-WzEaUUZCvJWgE_zxxz4g1qICYZnkoEivoBO7WhahNWuACJYlbXHx-HI191aGLY8N_id0_7g2raIAJ2lO770RzFpi5phkvnqRS5BG6rhDRQWIpnIgFrMMhELXH8t-jLKFbDlNOH2agPQm02YPJmOVs-krxr5vkOpt_R3S_COrKOtHMdnJ9pgLCgrdsIjaoT8sJ15bp74nsh8F-dXOwIbA6zX03CFVWcYG-LW0Ez',
     stats: { label: 'Top 3 Rankings', value: '88%+' },
+    startingPrice: '$199',
+    deliveryTime: 'Monthly / One-Time',
     subServices: [
       {
         id: 'keyword-research',
@@ -306,6 +402,9 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
         desc: 'High-commercial intent keyword discovery, topical authority pillar clustering, search volume forecasting, and competitor gap mapping.',
         tags: ['Topical Clusters', 'Commercial Intent', 'Search Volume Modeling', 'Competitor Gap'],
         icon: 'Search',
+        price: '$150',
+        deliveryTime: '2-3 Days',
+        pricingType: 'fixed',
         deliverables: ['Master Keyword Master Sheet', 'Topic Cluster Content Blueprint', 'Search Intent Tagging', 'Difficulty vs. Opportunity Matrix']
       },
       {
@@ -314,6 +413,10 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
         desc: 'Semantic HTML5 structure, title/meta optimization, structured JSON-LD schema markup, internal linking silos, and NLP content depth.',
         tags: ['JSON-LD Schema', 'Semantic Hierarchy', 'Internal Silos', 'NLP Content Optimization'],
         icon: 'FileCode2',
+        price: '$199',
+        deliveryTime: '3-4 Days',
+        pricingType: 'fixed',
+        badge: 'Recommended',
         deliverables: ['Custom Schema Implementations', 'Meta Title & Description Overhaul', 'Internal Linking Architecture', 'Image Alt & Semantic Tagging']
       },
       {
@@ -322,6 +425,9 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
         desc: 'Crawl budget optimization, canonical tags, XML sitemaps, robots.txt directives, indexing fixes, and Core Web Vitals remediation.',
         tags: ['Crawl Budget', 'Indexing Fixes', 'Robots & Sitemaps', 'Canonicalization'],
         icon: 'Cpu',
+        price: '$250',
+        deliveryTime: '3-5 Days',
+        pricingType: 'fixed',
         deliverables: ['150+ Point Technical Health Audit', 'Sitemap & Robots.txt Rebuild', 'Broken Link & Redirect Remediation', 'Google Search Console Verification']
       },
       {
@@ -330,6 +436,10 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
         desc: 'Digital PR campaigns, editorial high-DA contextual backlinks, brand mention acquisition, and authoritative citation building.',
         tags: ['Digital PR', 'Editorial Backlinks', 'High DA/DR (60+)', 'Brand Authority'],
         icon: 'Link2',
+        price: '$399/mo',
+        deliveryTime: 'Monthly Campaign',
+        pricingType: 'monthly',
+        badge: 'High DA 60+',
         deliverables: ['Manual Outreach Link Campaign', 'Editorial Backlink Portfolio', 'Toxic Backlink Disavow', 'Brand Mention Tracking']
       },
       {
@@ -338,6 +448,9 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
         desc: 'Faceted navigation indexing control, product schema with review stars, category page ranking frameworks, and out-of-stock SEO handling.',
         tags: ['Faceted Navigation', 'Product Schema', 'Category SEO', 'Review Snippets'],
         icon: 'Store',
+        price: '$349',
+        deliveryTime: '5-7 Days',
+        pricingType: 'starting',
         deliverables: ['Faceted URL Canonical Logic', 'Rich Product Schema Markup', 'Category Hierarchy Optimization', 'Review Star Search Snippets']
       },
       {
@@ -346,6 +459,9 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
         desc: 'Dominating Google Maps local 3-pack, NAP consistency across 50+ local directories, geo-tagged content, and automated review capture.',
         tags: ['Google Maps 3-Pack', 'NAP Citations', 'Local Schema', 'Review Funnels'],
         icon: 'MapPin',
+        price: '$220',
+        deliveryTime: '3-5 Days',
+        pricingType: 'fixed',
         deliverables: ['Google Business Profile Optimization', '50+ High Authority Citations', 'Geo-Targeted Landing Pages', 'Automated Review Request Flow']
       },
       {
@@ -354,6 +470,9 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
         desc: 'Weekly keyword rank tracking across desktop & mobile, competitor movement alerts, algorithmic update protection, and monthly ROI reports.',
         tags: ['Rank Tracking', 'Algorithm Alerts', 'Competitor Radar', 'Live Telemetry'],
         icon: 'Activity',
+        price: '$180/mo',
+        deliveryTime: 'Ongoing Tracking',
+        pricingType: 'monthly',
         deliverables: ['Daily Rank Tracking Dashboard', 'Monthly Executive Health Report', 'Algorithmic Impact Safeguard', 'Actionable SEO Roadmap']
       },
       {
@@ -362,6 +481,9 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
         desc: 'Hreflang implementation, ccTLD vs subfolder architecture, localized search engine optimization (Baidu, Yandex, Google global).',
         tags: ['Hreflang Tags', 'Multi-Language', 'Geo-Targeting', 'Global Indexing'],
         icon: 'Globe',
+        price: '$450',
+        deliveryTime: '7-10 Days',
+        pricingType: 'starting',
         deliverables: ['Hreflang XML Sitemap Integration', 'Geo-Targeting Setup in GSC', 'Localized URL Taxonomy', 'Content Localization Strategy']
       }
     ]
@@ -378,6 +500,8 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
     description: 'International merchant architecture and non-resident business structuring for global e-commerce. From 100% legal USA LLC and UK LTD company formation to verified Stripe, PayPal, and multi-currency business banking integration.',
     image: 'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?auto=format&fit=crop&w=1200&q=80',
     stats: { label: 'Approval Rate', value: '99.8%' },
+    startingPrice: '$299',
+    deliveryTime: '5-14 Days',
     subServices: [
       {
         id: 'usa-llc-payment-gateway',
@@ -385,6 +509,10 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
         desc: 'Complete non-resident USA LLC registration (Wyoming/Delaware/New Mexico), official IRS EIN tax number issuance, US business bank accounts (Mercury Bank, Relay, Wise Business), and verified Stripe US & PayPal US merchant gateway integration for global Shopify & custom stores.',
         tags: ['USA LLC Formation', 'IRS EIN Tax Number', 'Mercury / Wise Bank', 'Stripe US & PayPal US'],
         icon: 'Building',
+        price: '$450',
+        deliveryTime: '10-14 Business Days',
+        pricingType: 'fixed',
+        badge: 'Most Popular',
         deliverables: ['State LLC Certificate of Formation', 'Official IRS EIN Confirmation Letter', 'US Virtual Office & Registered Agent (1 Year)', 'Live Stripe US & PayPal US Merchant Account', 'Mercury / Relay US Business Bank Account']
       },
       {
@@ -393,6 +521,10 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
         desc: 'UK Companies House LTD registration for international founders, UK prestigious registered office address, Wise Business / Tide / Revolut Business onboarding, and full Stripe UK & PayPal UK merchant gateway activation with multi-currency GBP/USD/EUR checkout.',
         tags: ['UK Companies House', 'Registered UK Address', 'Wise / Tide UK Bank', 'Stripe UK & PayPal UK'],
         icon: 'Landmark',
+        price: '$320',
+        deliveryTime: '3-5 Business Days',
+        pricingType: 'fixed',
+        badge: 'Fast Setup',
         deliverables: ['Official UK Certificate of Incorporation', 'UK Registered Office Address & Mail Forwarding', 'Wise Business / Tide UK Account Setup', 'Active Stripe UK & PayPal UK Merchant Accounts', 'Full VAT & Corporation Tax Compliance Guidance']
       },
       {
@@ -401,6 +533,9 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
         desc: 'Zero-friction checkout integration, Apple Pay & Google Pay 1-click buy, Klarna/Afterpay Buy Now Pay Later (BNPL), anti-fraud radar rules, and multi-currency payout routing.',
         tags: ['Apple Pay & Google Pay', 'Klarna / Afterpay BNPL', 'Anti-Fraud Radar', 'Zero-Friction Checkout'],
         icon: 'ShieldCheck',
+        price: '$199',
+        deliveryTime: '2-3 Days',
+        pricingType: 'fixed',
         deliverables: ['1-Click Accelerated Checkout Setup', 'Cross-Border Currency Conversion Engine', 'Custom Stripe Webhook Listeners', 'Fraud Prevention & Chargeback Safeguards']
       },
       {
@@ -409,11 +544,15 @@ export const SERVICES_CATEGORIES: ServiceCategoryDetail[] = [
         desc: 'Setup and automated linking of Mercury Bank, Wise Business, Payoneer, and local bank wire transfers for zero-delay profit repatriation and currency conversion.',
         tags: ['Mercury Bank', 'Wise Business', 'Payoneer Integration', 'Automated Payouts'],
         icon: 'ArrowRightLeft',
+        price: '$180',
+        deliveryTime: '2-4 Days',
+        pricingType: 'fixed',
         deliverables: ['Multi-Currency Digital IBANs (USD, EUR, GBP)', 'Automated Payout Schedule Matrix', 'Bank-to-Local Wire Integration', 'Zero Delay Currency Exchange Setup']
       }
     ]
   }
 ];
+
 
 export const PORTFOLIO_PROJECTS: ProjectItem[] = [
   {

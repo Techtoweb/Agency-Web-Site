@@ -31,9 +31,32 @@ import {
   Save,
   Database,
   Loader2,
-  AlertTriangle
+  AlertTriangle,
+  Code,
+  Copy,
+  Cloud,
+  CloudOff,
+  RefreshCw,
+  FileCode,
+  Bell,
+  Volume2,
+  VolumeX,
+  MessageCircle,
+  Mail,
+  DollarSign,
+  Clock,
+  CreditCard,
+  ShoppingCart,
+  Phone,
+  PhoneCall,
+  Globe,
+  Building,
+  User,
+  Calendar,
+  CheckCheck
 } from 'lucide-react';
 import { useSiteData } from '../data/siteDataContext';
+import { playNotificationChime } from '../utils/sound';
 import { BrandLogo } from './BrandLogo';
 import {
   ServiceCategoryDetail,
@@ -72,7 +95,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const {
     siteData,
     saveSiteData,
+    deleteLead,
+    markLeadAsRead,
     isSyncing,
+    dbStatus,
+    dbError,
+    lastSyncedAt,
+    testDbConnection,
+    generateAgencyDataTsCode,
     resetToDefaults,
     importJsonData,
     exportJsonData
@@ -81,6 +111,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   // Local draft state: all changes stay staged until explicitly saved
   const [draftData, setDraftData] = useState<SiteDataState>(siteData);
   const [isSaving, setIsSaving] = useState(false);
+  const [isTestingDb, setIsTestingDb] = useState(false);
+  const [showCodeModal, setShowCodeModal] = useState(false);
 
   // Sync draft data whenever admin panel is opened with fresh siteData
   useEffect(() => {
@@ -122,26 +154,106 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [jsonImportText, setJsonImportText] = useState('');
   const [projectSearch, setProjectSearch] = useState('');
   const [leadStatusFilter, setLeadStatusFilter] = useState<'all' | LeadInquiry['status']>('all');
+  const [orderSearchQuery, setOrderSearchQuery] = useState('');
+  const [selectedOrderForModal, setSelectedOrderForModal] = useState<LeadInquiry | null>(null);
+  const [copiedTextType, setCopiedTextType] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
   };
 
+  const handleCopyText = (text: string, typeName: string) => {
+    try {
+      navigator.clipboard.writeText(text);
+      setCopiedTextType(typeName);
+      showToast(`📋 ${typeName} ক্লিপবোর্ডে কপি হয়েছে!`);
+      setTimeout(() => setCopiedTextType(null), 2000);
+    } catch {
+      showToast(`📋 ${text}`);
+    }
+  };
+
+  const handleDeleteOrder = (orderId: string, clientName?: string) => {
+    if (window.confirm(`Are you sure you want to delete the order from "${clientName || 'this customer'}"? This will permanently remove it from database.`)) {
+      // Remove from draft
+      deleteDraftLead(orderId);
+      // Remove from Firestore & SiteDataContext immediately
+      try {
+        deleteLead(orderId);
+      } catch (err) {
+        console.warn('Failed direct deleteLead call:', err);
+      }
+      if (selectedOrderForModal?.id === orderId) {
+        setSelectedOrderForModal(null);
+      }
+      showToast('🗑️ অর্ডারটি সফলভাবে ডাটাবেজ থেকে মুছে ফেলা হয়েছে!');
+    }
+  };
+
+  const handleClearCompletedOrders = () => {
+    const completed = draftData.leads.filter((l) => l.status === 'completed');
+    if (completed.length === 0) {
+      showToast('কোনো কমপ্লিটেড অর্ডার নেই।');
+      return;
+    }
+    if (window.confirm(`আপনি কি সব (${completed.length}টি) কমপ্লিটেড অর্ডার ডাটাবেজ থেকে মুছে ফেলতে চান?`)) {
+      completed.forEach((c) => {
+        deleteDraftLead(c.id);
+        try {
+          deleteLead(c.id);
+        } catch {}
+      });
+      showToast(`🗑️ ${completed.length}টি কমপ্লিটেড অর্ডার মুছে ফেলা হয়েছে!`);
+    }
+  };
+
   // Explicit Save Function to Firestore and Local Storage
   const handleSaveToDatabase = async () => {
     setIsSaving(true);
     try {
-      const success = await saveSiteData(draftData);
-      if (success) {
-        showToast('✓ সব পরিবর্তন ডাটাবেজে সফলভাবে সেভ করা হয়েছে! (All changes saved to database!)');
+      const result = await saveSiteData(draftData);
+      if (result.cloudSaved) {
+        showToast('✓ সব পরিবর্তন ক্লাউড ডাটাবেজ (Firestore) ও লোকাল স্টোরেজে সফলভাবে সেভ করা হয়েছে!');
       } else {
-        showToast('✓ Changes saved to local storage.');
+        showToast(`✓ লোকাল স্টোরেজে সেভ হয়েছে (${result.error || 'Firestore offline'})`);
       }
     } catch (err: any) {
       showToast('✓ Changes saved locally.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleTestDatabaseConnection = async () => {
+    setIsTestingDb(true);
+    const res = await testDbConnection();
+    setIsTestingDb(false);
+    if (res.ok) {
+      showToast('🟢 ' + res.message);
+    } else {
+      showToast('🔴 Database error: ' + res.message);
+    }
+  };
+
+  const handleDownloadAgencyDataTs = () => {
+    const code = generateAgencyDataTsCode(draftData);
+    const blob = new Blob([code], { type: 'text/typescript' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'agencyData.ts';
+    a.click();
+    showToast('✓ agencyData.ts downloaded! Replace src/data/agencyData.ts in your repo.');
+  };
+
+  const handleCopyAgencyDataTs = async () => {
+    const code = generateAgencyDataTsCode(draftData);
+    try {
+      await navigator.clipboard.writeText(code);
+      showToast('✓ agencyData.ts code copied to clipboard!');
+    } catch {
+      alert('Failed to copy. Please download the file instead.');
     }
   };
 
@@ -192,6 +304,37 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       categories: prev.categories.map((cat) =>
         cat.id === categoryId
           ? { ...cat, subServices: cat.subServices.map((s) => (s.id === sub.id ? sub : s)) }
+          : cat
+      )
+    }));
+  };
+
+  const updateDraftSubServicePrice = (
+    categoryId: string,
+    subServiceId: string,
+    price: string,
+    deliveryTime?: string,
+    pricingType?: any,
+    badge?: string
+  ) => {
+    setDraftData((prev) => ({
+      ...prev,
+      categories: prev.categories.map((cat) =>
+        cat.id === categoryId
+          ? {
+              ...cat,
+              subServices: (cat.subServices || []).map((s) =>
+                s.id === subServiceId
+                  ? {
+                      ...s,
+                      price,
+                      ...(deliveryTime !== undefined ? { deliveryTime } : {}),
+                      ...(pricingType !== undefined ? { pricingType } : {}),
+                      ...(badge !== undefined ? { badge } : {})
+                    }
+                  : s
+              )
+            }
           : cat
       )
     }));
@@ -289,6 +432,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setDraftData((prev) => ({
       ...prev,
       leads: prev.leads.map((l) => (l.id === id ? { ...l, status } : l))
+    }));
+  };
+
+  const updateDraftLeadNotes = (id: string, notes: string) => {
+    setDraftData((prev) => ({
+      ...prev,
+      leads: prev.leads.map((l) => (l.id === id ? { ...l, notes } : l))
+    }));
+  };
+
+  const toggleDraftLeadRead = (id: string) => {
+    setDraftData((prev) => ({
+      ...prev,
+      leads: prev.leads.map((l) => (l.id === id ? { ...l, isRead: !l.isRead } : l))
     }));
   };
 
@@ -420,14 +577,40 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 {hasUnsavedChanges ? (
                   <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-mono font-bold animate-pulse">
                     <span className="w-2 h-2 rounded-full bg-amber-500" />
-                    Unsaved Changes (অসংরক্ষিত পরিবর্তন)
+                    Unsaved Draft (অসংরক্ষিত ড্রাফট)
                   </span>
                 ) : (
                   <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-mono font-bold">
                     <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                    Database Synced (সেভ করা আছে)
+                    Database Synced
                   </span>
                 )}
+
+                {/* Cloud DB Status indicator */}
+                <button
+                  type="button"
+                  onClick={handleTestDatabaseConnection}
+                  disabled={isTestingDb}
+                  className={`hidden md:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold border transition-all cursor-pointer ${
+                    dbStatus === 'connected'
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                      : dbStatus === 'error'
+                      ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                      : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                  }`}
+                  title="Click to test Firestore connection"
+                >
+                  {isTestingDb ? (
+                    <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                  ) : dbStatus === 'connected' ? (
+                    <Cloud className="w-2.5 h-2.5 text-emerald-600" />
+                  ) : (
+                    <CloudOff className="w-2.5 h-2.5 text-rose-600" />
+                  )}
+                  <span>
+                    {isTestingDb ? 'Testing...' : dbStatus === 'connected' ? 'Firestore Connected' : 'Check DB'}
+                  </span>
+                </button>
               </div>
               <p className="text-[11px] sm:text-xs font-mono text-[#594139] hidden sm:block">
                 Edit titles, photos, logo, services, projects, and click Save Changes to persist to database.
@@ -436,6 +619,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
+            {/* Export Code for GitHub Button */}
+            <button
+              type="button"
+              onClick={handleDownloadAgencyDataTs}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-mono font-bold bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 transition-all cursor-pointer shadow-xs"
+              title="Download agencyData.ts to replace in your GitHub repository so changes stay permanently even on fresh git clone/deploy"
+            >
+              <FileCode className="w-3.5 h-3.5 text-blue-600" />
+              <span className="hidden sm:inline">Export for GitHub (agencyData.ts)</span>
+              <span className="sm:hidden">Export TS</span>
+            </button>
+
             {/* Discard button if changes exist */}
             {hasUnsavedChanges && (
               <button
@@ -446,7 +641,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 title="Discard unsaved changes"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Discard (বাতিল)</span>
+                <span className="hidden sm:inline">Discard</span>
               </button>
             )}
 
@@ -469,7 +664,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               ) : (
                 <>
                   <Save className="w-4 h-4" />
-                  <span>Save Changes (ডাটাবেজে সেভ করুন)</span>
+                  <span>Save Changes (সেভ করুন)</span>
                 </>
               )}
             </button>
@@ -485,7 +680,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 a.click();
                 showToast('Site data backup downloaded!');
               }}
-              className="hidden lg:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-mono font-semibold bg-white border border-black/10 hover:border-primary/40 text-[#191c1d] transition-all cursor-pointer"
+              className="hidden xl:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-mono font-semibold bg-white border border-black/10 hover:border-primary/40 text-[#191c1d] transition-all cursor-pointer"
             >
               <Download className="w-3.5 h-3.5 text-primary" />
               <span>Backup</span>
@@ -508,7 +703,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             { id: 'sections', label: 'Pages & Section Toggles', icon: Sliders },
             { id: 'hero-content', label: 'Hero & Site Content', icon: FileText },
             { id: 'testimonials-process', label: 'Testimonials & Steps', icon: Star, count: draftData.testimonials.length },
-            { id: 'leads', label: 'Inquiries & Leads', icon: Inbox, count: draftData.leads.length, badge: draftData.leads.filter(l => l.status === 'new').length },
+            { id: 'leads', label: 'Orders & Notifications', icon: Inbox, count: draftData.leads.length, badge: draftData.leads.filter(l => l.status === 'new' || !l.isRead).length },
             { id: 'settings', label: 'Settings & Restore', icon: Settings }
           ].map((tab) => {
             const Icon = tab.icon;
@@ -614,7 +809,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
                     <p className="text-xs text-[#594139] leading-relaxed line-clamp-2">{cat.description}</p>
 
-                    {/* Image Preview & Stats */}
+                    {/* Image Preview & Stats / Pricing */}
                     <div className="grid grid-cols-2 gap-3 pt-2 border-t border-black/5">
                       <div className="relative h-20 rounded-xl overflow-hidden bg-black/5 border border-black/5">
                         <img src={cat.image} alt={cat.title} className="w-full h-full object-cover" />
@@ -623,9 +818,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         </span>
                       </div>
                       <div className="bg-surface-container rounded-xl p-3 flex flex-col justify-center">
-                        <span className="text-[10px] font-mono text-[#594139] uppercase">{cat.stats?.label || 'Metric'}</span>
-                        <span className="text-base font-bold text-[#191c1d]">{cat.stats?.value || '+100%'}</span>
-                        <span className="text-[10px] font-mono text-emerald-600 font-bold mt-0.5">
+                        <span className="text-[10px] font-mono text-[#594139] uppercase">Starting Investment</span>
+                        <span className="text-sm sm:text-base font-extrabold text-emerald-700 font-mono">
+                          {cat.startingPrice ? `From ${cat.startingPrice}` : (cat.stats?.value || '$299+')}
+                        </span>
+                        <span className="text-[10px] font-mono text-[#594139] mt-0.5">
                           {cat.subServices?.length || 0} Subservices
                         </span>
                       </div>
@@ -635,7 +832,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     <div className="space-y-2 pt-2 border-t border-black/5">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-mono font-bold text-[#191c1d]">
-                          Sub-services ({cat.subServices?.length || 0})
+                          Sub-services & Custom Pricing ({cat.subServices?.length || 0})
                         </span>
                         <button
                           onClick={() => {
@@ -649,20 +846,48 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         </button>
                       </div>
 
-                      <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                      <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                         {cat.subServices?.map((sub) => (
                           <div
                             key={sub.id}
-                            className="flex items-center justify-between p-2.5 rounded-xl bg-surface-container/60 hover:bg-surface-container transition-all border border-black/5 text-xs"
+                            className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-2xl bg-surface-container/70 hover:bg-surface-container transition-all border border-black/5 text-xs gap-2"
                           >
-                            <div className="pr-2">
-                              <p className="font-bold text-[#191c1d]">{sub.name}</p>
-                              <p className="text-[10px] text-[#594139] truncate max-w-[240px]">{sub.desc}</p>
+                            <div className="pr-2 flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="font-bold text-[#191c1d] truncate">{sub.name}</p>
+                                {sub.badge && (
+                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-amber-100 text-amber-900">
+                                    {sub.badge}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[10px] text-[#594139] truncate">{sub.desc}</p>
+                              {sub.deliveryTime && (
+                                <span className="text-[10px] font-mono text-neutral-500">
+                                  ⏱️ {sub.deliveryTime}
+                                </span>
+                              )}
                             </div>
-                            <div className="flex items-center gap-1 shrink-0">
+
+                            <div className="flex items-center gap-2 shrink-0">
+                              {/* Quick Price Input */}
+                              <div className="flex items-center gap-1 bg-white px-2 py-1 rounded-xl border border-black/10 shadow-2xs">
+                                <span className="text-[10px] font-mono text-[#594139] font-bold">Price:</span>
+                                <input
+                                  type="text"
+                                  placeholder="$299"
+                                  value={sub.price || ''}
+                                  onChange={(e) => {
+                                    updateDraftSubServicePrice(cat.id, sub.id, e.target.value);
+                                  }}
+                                  className="w-20 font-mono font-bold text-emerald-700 text-xs focus:outline-none bg-transparent"
+                                />
+                              </div>
+
                               <button
                                 onClick={() => setEditingSubService({ categoryId: cat.id, sub })}
-                                className="p-1.5 rounded-lg hover:bg-white text-[#594139] hover:text-primary transition-all cursor-pointer"
+                                className="p-1.5 rounded-lg bg-white hover:bg-primary/10 text-[#594139] hover:text-primary transition-all cursor-pointer border border-black/5"
+                                title="Edit Full Sub-Service Details"
                               >
                                 <Edit3 className="w-3.5 h-3.5" />
                               </button>
@@ -673,7 +898,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                     showToast(`Sub-service deleted from draft.`);
                                   }
                                 }}
-                                className="p-1.5 rounded-lg hover:bg-rose-100 text-[#594139] hover:text-rose-600 transition-all cursor-pointer"
+                                className="p-1.5 rounded-lg bg-white hover:bg-rose-100 text-[#594139] hover:text-rose-600 transition-all cursor-pointer border border-black/5"
+                                title="Delete Sub-service"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -1214,15 +1440,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </div>
 
               {/* Site Branding & Contact Details */}
-              <div className="bg-white rounded-3xl p-6 border border-black/10 shadow-xs space-y-4">
-                <h4 className="text-sm font-mono font-bold text-[#191c1d] uppercase tracking-wider">
-                  Agency Contact & Footer Info
-                </h4>
+              <div className="bg-white rounded-3xl p-6 border border-black/10 shadow-xs space-y-6">
+                <div>
+                  <h4 className="text-sm font-mono font-bold text-[#191c1d] uppercase tracking-wider flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-primary" />
+                    <span>Live Support & Agency Contact Settings</span>
+                  </h4>
+                  <p className="text-xs text-[#594139] font-mono mt-1">
+                    Configure the live WhatsApp number and Email address shown to visitors across the floating support widget, navbar, and footer.
+                  </p>
+                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                   <div>
                     <label className="block text-xs font-mono font-semibold text-[#191c1d] mb-1">
-                      Agency Name
+                      Agency Name (ব্র্যান্ডের নাম)
                     </label>
                     <input
                       type="text"
@@ -1233,11 +1465,22 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-mono font-semibold text-[#191c1d] mb-1">
-                      Admin / Contact Email
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-mono font-semibold text-[#191c1d]">
+                        Support Email (সাপোর্ট ইমেইল)
+                      </label>
+                      <a
+                        href={`mailto:${draftData.siteSettings.email}`}
+                        className="text-[10px] font-mono text-primary hover:underline flex items-center gap-0.5"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <ExternalLink className="w-2.5 h-2.5" /> Test Mail
+                      </a>
+                    </div>
                     <input
                       type="email"
+                      placeholder="techtowebadmin@gmail.com"
                       value={draftData.siteSettings.email}
                       onChange={(e) => updateDraftSettings({ email: e.target.value })}
                       className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-black/10 text-xs font-mono text-[#191c1d] focus:outline-none focus:border-primary"
@@ -1245,15 +1488,47 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-mono font-semibold text-[#191c1d] mb-1">
-                      Phone / WhatsApp
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-mono font-semibold text-[#191c1d]">
+                        Support WhatsApp (হোয়াটসঅ্যাপ নম্বর)
+                      </label>
+                      <a
+                        href={`https://wa.me/${(draftData.siteSettings.whatsapp || draftData.siteSettings.phone || '').replace(/[^0-9]/g, '')}`}
+                        className="text-[10px] font-mono text-emerald-700 hover:underline flex items-center gap-0.5"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <ExternalLink className="w-2.5 h-2.5" /> Test WhatsApp
+                      </a>
+                    </div>
                     <input
                       type="text"
-                      value={draftData.siteSettings.phone}
+                      placeholder="+1 (800) 555-0199 or +8801700000000"
+                      value={draftData.siteSettings.whatsapp || draftData.siteSettings.phone || ''}
                       onChange={(e) => updateDraftSettings({ phone: e.target.value, whatsapp: e.target.value })}
                       className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-black/10 text-xs font-mono text-[#191c1d] focus:outline-none focus:border-primary"
                     />
+                  </div>
+                </div>
+
+                {/* Live Support Channel Preview Card */}
+                <div className="p-4 rounded-2xl bg-surface-container/60 border border-black/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <span className="text-[11px] font-mono font-bold text-[#191c1d] flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      Live Support Widget Channels Preview:
+                    </span>
+                    <p className="text-xs text-[#594139] font-mono">
+                      WhatsApp: <strong className="text-emerald-800">{draftData.siteSettings.whatsapp || draftData.siteSettings.phone}</strong> | Email: <strong className="text-primary">{draftData.siteSettings.email}</strong>
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-mono font-bold border border-emerald-300">
+                      WhatsApp Connected
+                    </span>
+                    <span className="px-3 py-1 rounded-full bg-amber-100 text-amber-900 text-[10px] font-mono font-bold border border-amber-300">
+                      Email Active
+                    </span>
                   </div>
                 </div>
               </div>
@@ -1387,112 +1662,483 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
           )}
 
-          {/* TAB 6: LEADS & CRM */}
+          {/* TAB 6: ORDERS & LEADS CRM */}
           {activeTab === 'leads' && (
             <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <h3 className="text-xl font-bold text-[#191c1d]">Client Inquiries & Project Proposals</h3>
-                  <p className="text-xs font-mono text-[#594139]">
-                    Manage contact form leads, change statuses, and track project requirements.
-                  </p>
-                </div>
+              {/* Header with Stats, Search & Actions */}
+              <div className="bg-white p-5 rounded-3xl border border-black/10 shadow-xs space-y-4">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <h3 className="text-xl font-bold text-[#191c1d]">Orders & Client Inquiries Hub</h3>
+                      {draftData.leads.filter((l) => l.status === 'new' || !l.isRead).length > 0 && (
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-rose-500 text-white animate-pulse">
+                          {draftData.leads.filter((l) => l.status === 'new' || !l.isRead).length} New / Unread
+                        </span>
+                      )}
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-mono bg-surface-container font-semibold text-[#594139]">
+                        Total Orders: {draftData.leads.length}
+                      </span>
+                    </div>
+                    <p className="text-xs font-mono text-[#594139] mt-0.5">
+                      View all customer descriptions, project requirements, contact details, and delete or manage orders easily.
+                    </p>
+                  </div>
 
-                <div className="flex items-center gap-2">
-                  {(['all', 'new', 'contacted', 'in_progress', 'completed'] as const).map((st) => (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Clear Completed Orders */}
+                    {draftData.leads.some((l) => l.status === 'completed') && (
+                      <button
+                        onClick={handleClearCompletedOrders}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-mono font-bold transition-all border border-rose-200 cursor-pointer"
+                        title="Delete All Completed Orders"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                        <span>Clear Completed ({draftData.leads.filter((l) => l.status === 'completed').length})</span>
+                      </button>
+                    )}
+
+                    {/* Sound Test Button */}
                     <button
-                      key={st}
-                      onClick={() => setLeadStatusFilter(st)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold capitalize transition-all cursor-pointer ${
-                        leadStatusFilter === st
-                          ? 'bg-primary text-white shadow-xs'
-                          : 'bg-white text-[#594139] border border-black/10 hover:bg-surface-container'
+                      onClick={() => {
+                        playNotificationChime();
+                        showToast('🔔 Notification chime played!');
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-[#191c1d] text-xs font-mono font-bold transition-all border border-black/5 cursor-pointer"
+                      title="Test Notification Sound"
+                    >
+                      <Volume2 className="w-4 h-4 text-primary" />
+                      <span>Test Sound</span>
+                    </button>
+
+                    {/* Sound Enable/Disable Toggle */}
+                    <button
+                      onClick={() => {
+                        const updated = !draftData.siteSettings.notificationSound;
+                        updateDraftSettings({ notificationSound: updated });
+                        showToast(updated ? '🔔 Notification sound enabled' : '🔕 Notification sound muted');
+                      }}
+                      className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-mono font-bold transition-all border cursor-pointer ${
+                        draftData.siteSettings.notificationSound
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                          : 'bg-neutral-100 text-neutral-600 border-neutral-200'
                       }`}
                     >
-                      {st.replace('_', ' ')}
+                      {draftData.siteSettings.notificationSound ? <Bell className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+                      <span>Sound: {draftData.siteSettings.notificationSound ? 'ON' : 'OFF'}</span>
                     </button>
-                  ))}
+                  </div>
+                </div>
+
+                {/* Search Bar */}
+                <div className="relative">
+                  <Search className="w-4 h-4 text-[#594139] absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search by customer name, email, phone/whatsapp, service, or keywords in description..."
+                    value={orderSearchQuery}
+                    onChange={(e) => setOrderSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-10 py-2.5 rounded-2xl bg-surface border border-black/10 text-xs font-mono text-[#191c1d] focus:outline-none focus:border-primary placeholder:text-[#594139]/60"
+                  />
+                  {orderSearchQuery && (
+                    <button
+                      onClick={() => setOrderSearchQuery('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-mono text-[#594139] hover:text-black"
+                    >
+                      ✕
+                    </button>
+                  )}
                 </div>
               </div>
 
-              {siteData.leads.length === 0 ? (
-                <div className="text-center py-12 bg-white rounded-3xl border border-black/10">
-                  <Inbox className="w-10 h-10 text-[#594139] mx-auto mb-2 opacity-50" />
-                  <p className="text-xs font-mono text-[#594139]">No incoming inquiries yet.</p>
+              {/* Status Filter Tabs */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+                {[
+                  { id: 'all', label: 'All Orders', count: draftData.leads.length },
+                  {
+                    id: 'new',
+                    label: 'New / Unread',
+                    count: draftData.leads.filter((l) => l.status === 'new' || !l.isRead).length
+                  },
+                  {
+                    id: 'in_progress',
+                    label: 'In Progress',
+                    count: draftData.leads.filter((l) => l.status === 'in_progress').length
+                  },
+                  {
+                    id: 'contacted',
+                    label: 'Contacted',
+                    count: draftData.leads.filter((l) => l.status === 'contacted').length
+                  },
+                  {
+                    id: 'completed',
+                    label: 'Completed',
+                    count: draftData.leads.filter((l) => l.status === 'completed').length
+                  },
+                  {
+                    id: 'cancelled',
+                    label: 'Cancelled',
+                    count: draftData.leads.filter((l) => l.status === 'cancelled').length
+                  }
+                ].map((st) => (
+                  <button
+                    key={st.id}
+                    onClick={() => setLeadStatusFilter(st.id as any)}
+                    className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-2xl text-xs font-mono font-bold capitalize transition-all cursor-pointer shrink-0 ${
+                      leadStatusFilter === st.id
+                        ? 'bg-primary text-white shadow-xs'
+                        : 'bg-white text-[#594139] border border-black/10 hover:bg-surface-container'
+                    }`}
+                  >
+                    <span>{st.label}</span>
+                    <span
+                      className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                        leadStatusFilter === st.id ? 'bg-white/20 text-white' : 'bg-black/5 text-[#191c1d]'
+                      }`}
+                    >
+                      {st.count}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Inquiries / Orders List */}
+              {draftData.leads.length === 0 ? (
+                <div className="text-center py-16 bg-white rounded-3xl border border-black/10 space-y-3">
+                  <Inbox className="w-12 h-12 text-[#594139] mx-auto opacity-40" />
+                  <div>
+                    <h4 className="font-bold text-sm text-[#191c1d]">No Incoming Orders or Inquiries Yet</h4>
+                    <p className="text-xs font-mono text-[#594139] max-w-md mx-auto mt-1">
+                      When potential clients order a service or submit instructions on your website, all details (email, WhatsApp, description, requirements) will appear here instantly.
+                    </p>
+                  </div>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {siteData.leads
-                    .filter((l) => (leadStatusFilter === 'all' ? true : l.status === leadStatusFilter))
-                    .map((lead) => (
-                      <div
-                        key={lead.id}
-                        className="bg-white rounded-2xl p-5 border border-black/10 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 hover:shadow-md transition-all"
-                      >
-                        <div className="space-y-1.5">
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-bold text-sm text-[#191c1d]">{lead.name}</h4>
-                            {lead.company && (
-                              <span className="text-xs font-mono text-[#594139]">({lead.company})</span>
+                <div className="space-y-4">
+                  {draftData.leads
+                    .filter((l) => {
+                      // Status filter
+                      if (leadStatusFilter === 'new' && !(l.status === 'new' || !l.isRead)) return false;
+                      if (leadStatusFilter !== 'all' && leadStatusFilter !== 'new' && l.status !== leadStatusFilter) return false;
+
+                      // Search query filter
+                      if (orderSearchQuery.trim()) {
+                        const q = orderSearchQuery.toLowerCase();
+                        const clientName = (l.name || '').toLowerCase();
+                        const clientEmail = (l.email || '').toLowerCase();
+                        const clientPhone = (l.phone || l.whatsapp || '').toLowerCase();
+                        const company = (l.company || '').toLowerCase();
+                        const service = (l.service || '').toLowerCase();
+                        const subService = (l.subService || '').toLowerCase();
+                        const msg = (l.message || l.description || l.requirements || '').toLowerCase();
+                        const id = (l.id || '').toLowerCase();
+
+                        return (
+                          clientName.includes(q) ||
+                          clientEmail.includes(q) ||
+                          clientPhone.includes(q) ||
+                          company.includes(q) ||
+                          service.includes(q) ||
+                          subService.includes(q) ||
+                          msg.includes(q) ||
+                          id.includes(q)
+                        );
+                      }
+                      return true;
+                    })
+                    .map((lead) => {
+                      const cleanPhone = (lead.phone || lead.whatsapp || '').replace(/[^0-9]/g, '');
+                      const whatsappUrl = cleanPhone
+                        ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(
+                            `Hello ${lead.name}, thank you for choosing Tech To Web for "${lead.subService || lead.service}". We have reviewed your order requirements and are ready to proceed!`
+                          )}`
+                        : null;
+                      const mailtoUrl = `mailto:${lead.email}?subject=${encodeURIComponent(
+                        `Tech To Web: Order Confirmation for ${lead.subService || lead.service}`
+                      )}&body=${encodeURIComponent(`Hi ${lead.name},\n\nThank you for ordering ${lead.subService || lead.service} from Tech To Web.\n\nWe have received your requirements and will start work immediately.`)}`;
+
+                      const fullDescription = lead.message || lead.description || lead.requirements || '';
+
+                      return (
+                        <div
+                          key={lead.id}
+                          className={`bg-white rounded-3xl p-6 border transition-all space-y-4 shadow-xs hover:shadow-md ${
+                            !lead.isRead || lead.status === 'new'
+                              ? 'border-primary/40 bg-gradient-to-r from-orange-50/25 via-white to-white ring-1 ring-primary/25'
+                              : 'border-black/10'
+                          }`}
+                        >
+                          {/* Order Top Bar */}
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-black/5 pb-3">
+                            <div className="flex items-center gap-2.5 flex-wrap">
+                              {/* Order ID Badge */}
+                              <button
+                                onClick={() => handleCopyText(lead.id, `Order ID #${lead.id}`)}
+                                className="inline-flex items-center gap-1 text-[11px] font-mono font-bold px-2 py-0.5 rounded-lg bg-surface-container text-[#191c1d] border border-black/5 hover:bg-black/5 cursor-pointer"
+                                title="Click to copy Order ID"
+                              >
+                                <span>#{lead.id.slice(0, 8)}</span>
+                                <Copy className="w-3 h-3 text-[#594139]" />
+                              </button>
+
+                              {/* Order Type Badge */}
+                              <span
+                                className={`inline-flex items-center gap-1 text-[11px] font-mono font-bold px-2.5 py-1 rounded-xl ${
+                                  lead.orderType === 'order'
+                                    ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                                    : 'bg-primary-fixed text-primary border border-primary/20'
+                                }`}
+                              >
+                                {lead.orderType === 'order' ? <ShoppingCart className="w-3.5 h-3.5" /> : <FileText className="w-3.5 h-3.5" />}
+                                <span>{lead.orderType === 'order' ? 'Direct Service Order' : 'Proposal / Quote'}</span>
+                              </span>
+
+                              {/* Unread dot */}
+                              {(!lead.isRead || lead.status === 'new') && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 animate-pulse">
+                                  ● New Unread
+                                </span>
+                              )}
+
+                              <span className="text-xs font-mono text-[#594139] flex items-center gap-1">
+                                <Clock className="w-3 h-3 text-[#594139]" />
+                                {lead.createdAt}
+                              </span>
+                            </div>
+
+                            {/* Status Selector & Actions */}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {/* Status Dropdown */}
+                              <select
+                                value={lead.status}
+                                onChange={(e) => {
+                                  updateDraftLeadStatus(lead.id, e.target.value as any);
+                                  showToast(`Status updated to "${e.target.value}".`);
+                                }}
+                                className="px-3 py-1.5 rounded-xl bg-surface border border-black/10 text-xs font-mono font-bold text-[#191c1d] focus:outline-none cursor-pointer"
+                              >
+                                <option value="new">● New</option>
+                                <option value="contacted">● Contacted</option>
+                                <option value="in_progress">● In Progress</option>
+                                <option value="completed">● Completed</option>
+                                <option value="cancelled">● Cancelled</option>
+                              </select>
+
+                              {/* Toggle Read */}
+                              <button
+                                onClick={() => {
+                                  toggleDraftLeadRead(lead.id);
+                                  showToast(lead.isRead ? 'Marked as unread' : 'Marked as read');
+                                }}
+                                className="px-2.5 py-1.5 rounded-xl bg-surface-container hover:bg-surface-container-high text-[#191c1d] text-xs font-mono cursor-pointer border border-black/5"
+                                title="Toggle Read/Unread"
+                              >
+                                {lead.isRead ? 'Mark Unread' : 'Mark Read'}
+                              </button>
+
+                              {/* Open Details Modal */}
+                              <button
+                                onClick={() => {
+                                  setSelectedOrderForModal(lead);
+                                  if (!lead.isRead) {
+                                    toggleDraftLeadRead(lead.id);
+                                  }
+                                }}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary text-white text-xs font-mono font-bold hover:bg-primary-container transition-all cursor-pointer shadow-xs"
+                                title="Open full customer description and order specs"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>Open Order Details</span>
+                              </button>
+
+                              {/* Delete Order Button */}
+                              <button
+                                onClick={() => handleDeleteOrder(lead.id, lead.name)}
+                                className="p-2 rounded-xl bg-surface-container hover:bg-rose-100 hover:text-rose-600 transition-all text-[#594139] cursor-pointer"
+                                title="Delete Order (মুছে ফেলুন)"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Client & Service Info Grid */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Client Details Box */}
+                            <div className="bg-surface-container/50 rounded-2xl p-4 border border-black/5 space-y-2.5">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-mono uppercase tracking-wider text-[#594139] font-bold flex items-center gap-1">
+                                  <User className="w-3 h-3 text-[#594139]" /> Client Contact Information
+                                </span>
+                              </div>
+
+                              <div>
+                                <h4 className="font-extrabold text-base text-[#191c1d]">{lead.name}</h4>
+                                {lead.company && (
+                                  <p className="text-xs font-mono text-[#594139] flex items-center gap-1 mt-0.5">
+                                    <Building className="w-3 h-3 text-[#594139]" /> {lead.company}
+                                  </p>
+                                )}
+                                {lead.website && (
+                                  <a
+                                    href={lead.website.startsWith('http') ? lead.website : `https://${lead.website}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-xs font-mono text-primary hover:underline inline-flex items-center gap-1 mt-0.5"
+                                  >
+                                    <Globe className="w-3 h-3" /> {lead.website} <ExternalLink className="w-3 h-3" />
+                                  </a>
+                                )}
+                              </div>
+
+                              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-black/5">
+                                <div className="inline-flex items-center gap-1 bg-white border border-black/10 rounded-xl p-1 shadow-2xs">
+                                  <a
+                                    href={mailtoUrl}
+                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono font-bold text-[#191c1d] hover:text-primary transition-all"
+                                  >
+                                    <Mail className="w-3.5 h-3.5 text-primary" />
+                                    <span>{lead.email}</span>
+                                  </a>
+                                  <button
+                                    onClick={() => handleCopyText(lead.email, 'Email address')}
+                                    className="p-1 text-[#594139] hover:text-black rounded hover:bg-black/5 cursor-pointer"
+                                    title="Copy Email"
+                                  >
+                                    <Copy className="w-3 h-3" />
+                                  </button>
+                                </div>
+
+                                {(lead.phone || lead.whatsapp) && (
+                                  <div className="inline-flex items-center gap-1 bg-emerald-50 border border-emerald-200 rounded-xl p-1 shadow-2xs">
+                                    <a
+                                      href={whatsappUrl || `tel:${lead.phone || lead.whatsapp}`}
+                                      target={whatsappUrl ? '_blank' : undefined}
+                                      rel="noreferrer"
+                                      className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono font-bold text-emerald-900 hover:text-emerald-700 transition-all"
+                                    >
+                                      <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                                      <span>WhatsApp: {lead.phone || lead.whatsapp}</span>
+                                    </a>
+                                    <button
+                                      onClick={() => handleCopyText(lead.phone || lead.whatsapp || '', 'Phone/WhatsApp number')}
+                                      className="p-1 text-emerald-700 hover:text-emerald-900 rounded hover:bg-emerald-100 cursor-pointer"
+                                      title="Copy Number"
+                                    >
+                                      <Copy className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Service & Pricing Details Box */}
+                            <div className="bg-surface-container/50 rounded-2xl p-4 border border-black/5 space-y-2.5">
+                              <span className="text-[10px] font-mono uppercase tracking-wider text-[#594139] font-bold flex items-center gap-1">
+                                <Briefcase className="w-3 h-3 text-[#594139]" /> Ordered Service & Financials
+                              </span>
+
+                              <div>
+                                <h5 className="font-bold text-sm text-[#191c1d]">{lead.service}</h5>
+                                {lead.subService && (
+                                  <p className="text-xs font-mono font-semibold text-primary mt-0.5">
+                                    ↳ Package / Sub-Service: {lead.subService}
+                                  </p>
+                                )}
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-black/5">
+                                <div className="bg-white p-2.5 rounded-xl border border-black/5">
+                                  <span className="text-[10px] font-mono text-[#594139] block">Agreed / Budget</span>
+                                  <span className="text-sm font-extrabold text-emerald-700 font-mono">
+                                    {lead.price || lead.servicePrice || lead.budget || 'Custom Quote'}
+                                  </span>
+                                </div>
+                                <div className="bg-white p-2.5 rounded-xl border border-black/5">
+                                  <span className="text-[10px] font-mono text-[#594139] block">Delivery Target</span>
+                                  <span className="text-xs font-bold text-[#191c1d] font-mono">
+                                    {lead.deliveryTime || lead.timeline || 'Standard SLA'}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Customer Description / Requirements Highlight Box */}
+                          <div className="bg-gradient-to-r from-neutral-50 to-orange-50/30 rounded-2xl p-4 border border-black/10 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-mono uppercase tracking-wider text-[#191c1d] font-bold flex items-center gap-1.5">
+                                <FileText className="w-3.5 h-3.5 text-primary" /> Customer Requirements & Instructions (গ্রাহকের বিবরণ)
+                              </span>
+                              <div className="flex items-center gap-2">
+                                {fullDescription && (
+                                  <button
+                                    onClick={() => handleCopyText(fullDescription, 'Customer Description')}
+                                    className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-[#594139] hover:text-black px-2 py-1 rounded-lg bg-white border border-black/10 cursor-pointer"
+                                  >
+                                    <Copy className="w-3 h-3" />
+                                    <span>Copy Description</span>
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => setSelectedOrderForModal(lead)}
+                                  className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-primary hover:text-primary-container px-2 py-1 rounded-lg bg-primary/10 cursor-pointer"
+                                >
+                                  <Eye className="w-3 h-3" />
+                                  <span>View Full Screen</span>
+                                </button>
+                              </div>
+                            </div>
+
+                            {fullDescription ? (
+                              <p className="text-xs text-[#191c1d] leading-relaxed whitespace-pre-wrap line-clamp-3 bg-white/80 p-3 rounded-xl border border-black/5 font-sans">
+                                {fullDescription}
+                              </p>
+                            ) : (
+                              <p className="text-xs text-[#594139] italic">
+                                No additional text provided with this order.
+                              </p>
                             )}
-                            <span
-                              className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full capitalize ${
-                                lead.status === 'new'
-                                  ? 'bg-rose-100 text-rose-800'
-                                  : lead.status === 'in_progress'
-                                  ? 'bg-amber-100 text-amber-800'
-                                  : lead.status === 'contacted'
-                                  ? 'bg-blue-100 text-blue-800'
-                                  : 'bg-emerald-100 text-emerald-800'
-                              }`}
-                            >
-                              ● {lead.status.replace('_', ' ')}
-                            </span>
                           </div>
 
-                          <div className="flex flex-wrap items-center gap-3 text-xs font-mono text-[#594139]">
-                            <span>📧 {lead.email}</span>
-                            <span>🎯 {lead.service}</span>
-                            {lead.budget && <span>💰 {lead.budget}</span>}
-                            <span>🕒 {lead.createdAt}</span>
+                          {/* Internal Admin Private Notes & Action Footer */}
+                          <div className="pt-1 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="flex-1">
+                              <input
+                                type="text"
+                                placeholder="Internal admin notes (e.g. Sent wireframes, waiting for logo files)..."
+                                value={lead.notes || ''}
+                                onChange={(e) => {
+                                  updateDraftLeadNotes(lead.id, e.target.value);
+                                }}
+                                className="w-full px-3 py-2 rounded-xl bg-surface border border-black/10 text-xs font-mono text-[#191c1d] focus:outline-none focus:border-primary"
+                              />
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0">
+                              {whatsappUrl && (
+                                <a
+                                  href={whatsappUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-mono font-bold transition-all shadow-xs"
+                                >
+                                  <MessageCircle className="w-3.5 h-3.5" />
+                                  <span>WhatsApp</span>
+                                </a>
+                              )}
+                              <a
+                                href={mailtoUrl}
+                                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#191c1d] hover:bg-black text-white text-xs font-mono font-bold transition-all shadow-xs"
+                              >
+                                <Mail className="w-3.5 h-3.5" />
+                                <span>Email</span>
+                              </a>
+                            </div>
                           </div>
-
-                          {lead.message && (
-                            <p className="text-xs text-[#191c1d] bg-surface-container p-2.5 rounded-xl border border-black/5 mt-1">
-                              &quot;{lead.message}&quot;
-                            </p>
-                          )}
                         </div>
-
-                        <div className="flex items-center gap-2 shrink-0">
-                          <select
-                            value={lead.status}
-                            onChange={(e) => {
-                              updateDraftLeadStatus(lead.id, e.target.value as any);
-                              showToast(`Status updated to "${e.target.value}" in draft.`);
-                            }}
-                            className="px-3 py-1.5 rounded-xl bg-surface border border-black/10 text-xs font-mono text-[#191c1d] focus:outline-none cursor-pointer"
-                          >
-                            <option value="new">New</option>
-                            <option value="contacted">Contacted</option>
-                            <option value="in_progress">In Progress</option>
-                            <option value="completed">Completed</option>
-                          </select>
-
-                          <button
-                            onClick={() => {
-                              if (confirm(`Delete inquiry from ${lead.name}?`)) {
-                                deleteDraftLead(lead.id);
-                                showToast('Inquiry deleted from draft.');
-                              }
-                            }}
-                            className="p-2 rounded-xl bg-surface-container hover:bg-rose-100 hover:text-rose-600 transition-all text-[#594139] cursor-pointer"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                 </div>
               )}
             </div>
@@ -1647,6 +2293,129 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </div>
               </div>
 
+              {/* 1. Cloud Database Status & Diagnostics */}
+              <div className="bg-white rounded-3xl p-6 border border-black/10 shadow-xs space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-black/5">
+                  <div className="flex items-center gap-2.5">
+                    <div className={`w-9 h-9 rounded-2xl flex items-center justify-center ${
+                      dbStatus === 'connected' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+                    }`}>
+                      {dbStatus === 'connected' ? <Cloud className="w-5 h-5" /> : <CloudOff className="w-5 h-5" />}
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-mono font-bold text-[#191c1d] uppercase tracking-wider">
+                        Firebase Cloud Database Sync (ক্লাউড ডাটাবেজ স্ট্যাটাস)
+                      </h4>
+                      <p className="text-xs font-mono text-[#594139]">
+                        Real-time cloud persistence connected to Google Firestore (<code className="text-primary font-bold">site_cms/main_config</code>)
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleTestDatabaseConnection}
+                    disabled={isTestingDb}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-mono font-bold bg-surface-container hover:bg-white border border-black/10 text-[#191c1d] transition-all cursor-pointer shrink-0"
+                  >
+                    {isTestingDb ? <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" /> : <RefreshCw className="w-3.5 h-3.5 text-primary" />}
+                    <span>{isTestingDb ? 'Testing Connection...' : 'Test Cloud Connection'}</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-mono">
+                  <div className="p-3.5 rounded-2xl bg-surface-container border border-black/5 space-y-1">
+                    <span className="text-[#594139] block text-[11px]">Database Status</span>
+                    <div className="flex items-center gap-2 font-bold">
+                      <span className={`w-2.5 h-2.5 rounded-full ${dbStatus === 'connected' ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
+                      <span className={dbStatus === 'connected' ? 'text-emerald-800' : 'text-rose-800'}>
+                        {dbStatus === 'connected' ? 'Connected & Active (কানেক্টেড)' : 'Connection Check Required'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="p-3.5 rounded-2xl bg-surface-container border border-black/5 space-y-1">
+                    <span className="text-[#594139] block text-[11px]">Last Cloud Sync Time</span>
+                    <span className="font-bold text-[#191c1d] block">
+                      {lastSyncedAt ? lastSyncedAt : 'Synced on load'}
+                    </span>
+                  </div>
+
+                  <div className="p-3.5 rounded-2xl bg-surface-container border border-black/5 space-y-1">
+                    <span className="text-[#594139] block text-[11px]">Local Cache Status</span>
+                    <span className="font-bold text-emerald-800 block flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Active (Instant Offline Fallback)
+                    </span>
+                  </div>
+                </div>
+
+                {dbError && (
+                  <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-xs font-mono text-rose-800 space-y-1">
+                    <div className="font-bold flex items-center gap-1.5">
+                      <AlertTriangle className="w-4 h-4 text-rose-600" />
+                      <span>Firestore Sync Notice:</span>
+                    </div>
+                    <p className="text-[11px] leading-relaxed">{dbError}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* 2. Permanent GitHub Repository Code Synchronization (গিটহাব রেপোজিটরির স্থায়ী ডাটা সিঙ্ক) */}
+              <div className="bg-gradient-to-br from-blue-50/60 to-indigo-50/40 rounded-3xl p-6 border border-blue-200/80 shadow-xs space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-blue-200/60">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-md">
+                      <FileCode className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-mono font-bold text-blue-950 uppercase tracking-wider">
+                        GitHub Repository Permanent Code Sync (গিটহাব কোড সিঙ্ক)
+                      </h4>
+                      <p className="text-xs font-mono text-blue-800/80">
+                        Export your customized services, projects, logo & text as ready-to-use TypeScript code for your repository.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={handleDownloadAgencyDataTs}
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-600/20 transition-all cursor-pointer"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Download agencyData.ts</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCopyAgencyDataTs}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-mono font-bold bg-white hover:bg-blue-50 text-blue-900 border border-blue-200 shadow-xs transition-all cursor-pointer"
+                    >
+                      <Copy className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Copy Code</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-white/90 rounded-2xl p-4 border border-blue-100 text-xs font-mono text-[#191c1d] space-y-2.5 leading-relaxed">
+                  <div className="font-bold text-blue-900 flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-blue-600" />
+                    <span>গিটহাবে পুশ করলে ডাটা আগের মতো হওয়া ঠেকাতে স্থায়ী সমাধান:</span>
+                  </div>
+                  <ol className="list-decimal pl-5 space-y-1.5 text-[11px] text-[#594139]">
+                    <li>
+                      <strong>ক্লাউড ডাটাবেজ (স্বয়ংক্রিয়):</strong> অ্যাডমিন প্যানেলে <em>&quot;Save Changes&quot;</em> ক্লিক করলে ডাটা Firebase Firestore ক্লাউডে সেভ হয়ে যায় এবং যে কোনো ভিজিটর বা নতুন ব্রাউজার সরাসরি ক্লাউড থেকে ডাটা দেখতে পায়।
+                    </li>
+                    <li>
+                      <strong>GitHub কোড পার্মানেন্ট করতে:</strong> আপনি যদি চান আপনার গিটহাব রিপোজিটরির সোর্স কোডেই আপনার সব পরিবর্তন স্থায়ীভাবে থাকুক, তাহলে উপরের <strong>&quot;Download agencyData.ts&quot;</strong> বাটনে ক্লিক করে ফাইলটি ডাউনলোড করুন।
+                    </li>
+                    <li>
+                      ডাউনলোড করা ফাইলটি আপনার প্রজেক্টের <code className="bg-blue-100/70 text-blue-900 px-1.5 py-0.5 rounded font-bold">src/data/agencyData.ts</code> ফাইলে পেস্ট করে <code className="bg-slate-100 text-slate-900 px-1.5 py-0.5 rounded font-bold">git push</code> করে দিন। এরপর গিটহাবে পুশ করলেও আর কখনো আগের ডিফল্ট ডাটায় ফিরে যাবে না!
+                    </li>
+                  </ol>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Export / Import Box */}
                 <div className="bg-white rounded-3xl p-6 border border-black/10 shadow-xs space-y-4">
@@ -1727,6 +2496,318 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       </motion.div>
 
       {/* --- SUB-MODALS FOR ADDING / EDITING ITEMS --- */}
+
+      {/* 0. Order Inspection & Full Customer Description Modal */}
+      {selectedOrderForModal && (
+        <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-2xl bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-black/10 space-y-6 max-h-[92vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-black/10">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <div className="w-10 h-10 rounded-2xl bg-primary text-white flex items-center justify-center shadow-xs">
+                  {selectedOrderForModal.orderType === 'order' ? (
+                    <ShoppingCart className="w-5 h-5" />
+                  ) : (
+                    <FileText className="w-5 h-5" />
+                  )}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-bold text-[#191c1d]">
+                      {selectedOrderForModal.orderType === 'order' ? 'Service Order Details' : 'Proposal Inquiry'}
+                    </h3>
+                    <button
+                      onClick={() => handleCopyText(selectedOrderForModal.id, `Order ID #${selectedOrderForModal.id}`)}
+                      className="inline-flex items-center gap-1 text-[11px] font-mono font-bold px-2 py-0.5 rounded-lg bg-surface-container hover:bg-black/5 text-[#191c1d] cursor-pointer"
+                      title="Copy Order ID"
+                    >
+                      <span>#{selectedOrderForModal.id.slice(0, 8)}</span>
+                      <Copy className="w-3 h-3 text-[#594139]" />
+                    </button>
+                  </div>
+                  <p className="text-xs font-mono text-[#594139] flex items-center gap-1 mt-0.5">
+                    <Clock className="w-3.5 h-3.5 text-[#594139]" /> Submitted on {selectedOrderForModal.createdAt}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setSelectedOrderForModal(null)}
+                className="p-2 rounded-xl hover:bg-surface-container text-[#594139] hover:text-black cursor-pointer"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Quick Status & Action Row */}
+            <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-surface-container border border-black/5">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono font-bold text-[#594139]">Status:</span>
+                <select
+                  value={selectedOrderForModal.status}
+                  onChange={(e) => {
+                    const newStatus = e.target.value as any;
+                    updateDraftLeadStatus(selectedOrderForModal.id, newStatus);
+                    setSelectedOrderForModal({
+                      ...selectedOrderForModal,
+                      status: newStatus
+                    });
+                    showToast(`Status updated to "${newStatus}".`);
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-white border border-black/10 text-xs font-mono font-bold text-[#191c1d] focus:outline-none cursor-pointer"
+                >
+                  <option value="new">● New</option>
+                  <option value="contacted">● Contacted</option>
+                  <option value="in_progress">● In Progress</option>
+                  <option value="completed">● Completed</option>
+                  <option value="cancelled">● Cancelled</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    toggleDraftLeadRead(selectedOrderForModal.id);
+                    setSelectedOrderForModal({
+                      ...selectedOrderForModal,
+                      isRead: !selectedOrderForModal.isRead
+                    });
+                    showToast(selectedOrderForModal.isRead ? 'Marked as unread' : 'Marked as read');
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-white border border-black/10 hover:bg-surface-container-high text-[#191c1d] text-xs font-mono cursor-pointer"
+                >
+                  {selectedOrderForModal.isRead ? 'Mark as Unread' : 'Mark as Read'}
+                </button>
+
+                <button
+                  onClick={() => handleDeleteOrder(selectedOrderForModal.id, selectedOrderForModal.name)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-mono font-bold cursor-pointer transition-all"
+                  title="Delete this order"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete Order</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Client Contact Profile */}
+            <div className="bg-surface rounded-2xl p-5 border border-black/10 space-y-3">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-[#594139] font-bold flex items-center gap-1.5">
+                <User className="w-3.5 h-3.5 text-primary" /> Customer Contact Information
+              </span>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <span className="text-[11px] font-mono text-[#594139] block">Full Name</span>
+                  <h4 className="text-base font-extrabold text-[#191c1d]">{selectedOrderForModal.name}</h4>
+                  {selectedOrderForModal.company && (
+                    <p className="text-xs font-mono text-[#594139] flex items-center gap-1 mt-0.5">
+                      <Building className="w-3.5 h-3.5 text-[#594139]" /> {selectedOrderForModal.company}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-[11px] font-mono text-[#594139] block">Website / Store URL</span>
+                  {selectedOrderForModal.website ? (
+                    <a
+                      href={selectedOrderForModal.website.startsWith('http') ? selectedOrderForModal.website : `https://${selectedOrderForModal.website}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs font-mono text-primary font-bold hover:underline inline-flex items-center gap-1 mt-0.5 break-all"
+                    >
+                      <Globe className="w-3.5 h-3.5 shrink-0" /> {selectedOrderForModal.website} <ExternalLink className="w-3 h-3 shrink-0" />
+                    </a>
+                  ) : (
+                    <span className="text-xs font-mono text-[#594139] italic">Not provided</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Direct Reach Buttons */}
+              <div className="flex flex-wrap gap-2 pt-3 border-t border-black/5">
+                {/* Email Box */}
+                <div className="flex items-center gap-1 bg-white border border-black/10 rounded-xl p-1 shadow-2xs">
+                  <a
+                    href={`mailto:${selectedOrderForModal.email}?subject=${encodeURIComponent(
+                      `Tech To Web: Order Update for ${selectedOrderForModal.subService || selectedOrderForModal.service}`
+                    )}`}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-bold text-[#191c1d] hover:text-primary transition-all"
+                  >
+                    <Mail className="w-3.5 h-3.5 text-primary" />
+                    <span>{selectedOrderForModal.email}</span>
+                  </a>
+                  <button
+                    onClick={() => handleCopyText(selectedOrderForModal.email, 'Email address')}
+                    className="p-1.5 text-[#594139] hover:text-black rounded hover:bg-black/5 cursor-pointer"
+                    title="Copy Email"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {/* WhatsApp Box */}
+                {(selectedOrderForModal.phone || selectedOrderForModal.whatsapp) && (
+                  <div className="flex items-center gap-1 bg-emerald-50 border border-emerald-200 rounded-xl p-1 shadow-2xs">
+                    <a
+                      href={`https://wa.me/${(selectedOrderForModal.phone || selectedOrderForModal.whatsapp || '').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                        `Hello ${selectedOrderForModal.name}, thank you for choosing Tech To Web for "${selectedOrderForModal.subService || selectedOrderForModal.service}". We are ready to discuss your order requirements!`
+                      )}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-bold text-emerald-900 hover:text-emerald-700 transition-all"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>WhatsApp: {selectedOrderForModal.phone || selectedOrderForModal.whatsapp}</span>
+                    </a>
+                    <button
+                      onClick={() => handleCopyText(selectedOrderForModal.phone || selectedOrderForModal.whatsapp || '', 'Phone/WhatsApp number')}
+                      className="p-1.5 text-emerald-700 hover:text-emerald-900 rounded hover:bg-emerald-100 cursor-pointer"
+                      title="Copy Number"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Service & Financials Specifications */}
+            <div className="bg-surface rounded-2xl p-5 border border-black/10 space-y-3">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-[#594139] font-bold flex items-center gap-1.5">
+                <Briefcase className="w-3.5 h-3.5 text-primary" /> Service & Pricing Specifications
+              </span>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <span className="text-[11px] font-mono text-[#594139] block">Selected Service Category</span>
+                  <h5 className="font-bold text-sm text-[#191c1d]">{selectedOrderForModal.service}</h5>
+                  {selectedOrderForModal.subService && (
+                    <p className="text-xs font-mono font-semibold text-primary mt-0.5">
+                      ↳ Package: {selectedOrderForModal.subService}
+                    </p>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-white p-3 rounded-xl border border-black/5">
+                    <span className="text-[10px] font-mono text-[#594139] block">Agreed / Budget</span>
+                    <span className="text-base font-extrabold text-emerald-700 font-mono">
+                      {selectedOrderForModal.price || selectedOrderForModal.servicePrice || selectedOrderForModal.budget || 'Custom Quote'}
+                    </span>
+                  </div>
+
+                  <div className="bg-white p-3 rounded-xl border border-black/5">
+                    <span className="text-[10px] font-mono text-[#594139] block">Delivery SLA</span>
+                    <span className="text-xs font-bold text-[#191c1d] font-mono">
+                      {selectedOrderForModal.deliveryTime || selectedOrderForModal.timeline || 'Standard SLA'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* FULL CUSTOMER DESCRIPTION & REQUIREMENTS */}
+            <div className="bg-gradient-to-br from-neutral-50 to-orange-50/40 rounded-2xl p-5 border border-black/15 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-mono uppercase tracking-wider text-[#191c1d] font-bold flex items-center gap-1.5">
+                  <FileText className="w-4 h-4 text-primary" /> Customer Description & Requirements (গ্রাহকের বিবরণ)
+                </span>
+                {(selectedOrderForModal.message || selectedOrderForModal.description || selectedOrderForModal.requirements) && (
+                  <button
+                    onClick={() =>
+                      handleCopyText(
+                        selectedOrderForModal.message || selectedOrderForModal.description || selectedOrderForModal.requirements || '',
+                        'Customer Description'
+                      )
+                    }
+                    className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-[#191c1d] px-3 py-1.5 rounded-xl bg-white border border-black/10 hover:border-primary cursor-pointer shadow-xs"
+                  >
+                    <Copy className="w-3.5 h-3.5 text-primary" />
+                    <span>Copy Full Description</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="bg-white p-4 rounded-xl border border-black/10">
+                {selectedOrderForModal.message || selectedOrderForModal.description || selectedOrderForModal.requirements ? (
+                  <div className="text-xs text-[#191c1d] leading-relaxed whitespace-pre-wrap break-words font-sans">
+                    {selectedOrderForModal.message || selectedOrderForModal.description || selectedOrderForModal.requirements}
+                  </div>
+                ) : (
+                  <p className="text-xs text-[#594139] italic">
+                    The client did not provide additional written instructions with this submission.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Admin Private Internal Notes */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-mono text-[#594139] font-bold uppercase tracking-wider">
+                Admin Private Notes
+              </label>
+              <textarea
+                rows={3}
+                placeholder="Write internal notes about this order (milestones, payments, custom agreements)..."
+                value={selectedOrderForModal.notes || ''}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  updateDraftLeadNotes(selectedOrderForModal.id, val);
+                  setSelectedOrderForModal({
+                    ...selectedOrderForModal,
+                    notes: val
+                  });
+                }}
+                className="w-full p-3 rounded-2xl bg-surface border border-black/10 text-xs font-mono text-[#191c1d] focus:outline-none focus:border-primary leading-relaxed"
+              />
+            </div>
+
+            {/* Modal Bottom Action Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-black/10">
+              <button
+                onClick={() => handleDeleteOrder(selectedOrderForModal.id, selectedOrderForModal.name)}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-mono font-bold cursor-pointer transition-all"
+              >
+                <Trash2 className="w-4 h-4 text-rose-600" />
+                <span>Delete Order Permanently</span>
+              </button>
+
+              <div className="flex items-center gap-2">
+                {(selectedOrderForModal.phone || selectedOrderForModal.whatsapp) && (
+                  <a
+                    href={`https://wa.me/${(selectedOrderForModal.phone || selectedOrderForModal.whatsapp || '').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                      `Hello ${selectedOrderForModal.name}, reaching out from Tech To Web regarding your order for "${selectedOrderForModal.subService || selectedOrderForModal.service}".`
+                    )}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-mono font-bold transition-all shadow-xs"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    <span>WhatsApp Chat</span>
+                  </a>
+                )}
+                <a
+                  href={`mailto:${selectedOrderForModal.email}?subject=${encodeURIComponent(
+                    `Tech To Web: Update for ${selectedOrderForModal.subService || selectedOrderForModal.service}`
+                  )}`}
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#191c1d] hover:bg-black text-white text-xs font-mono font-bold transition-all shadow-xs"
+                >
+                  <Mail className="w-4 h-4" />
+                  <span>Send Email</span>
+                </a>
+                <button
+                  onClick={() => setSelectedOrderForModal(null)}
+                  className="px-4 py-2.5 rounded-xl bg-surface-container hover:bg-surface-container-high text-[#191c1d] text-xs font-mono font-bold cursor-pointer border border-black/5"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 1. Category Modal (Add / Edit) */}
       {(editingCategory || isNewCategoryModal) && (
@@ -1991,6 +3072,8 @@ const CategoryForm: React.FC<{
   const [title, setTitle] = useState(initial?.title || '');
   const [shortLabel, setShortLabel] = useState(initial?.shortLabel || '');
   const [sublabel, setSublabel] = useState(initial?.sublabel || '');
+  const [startingPrice, setStartingPrice] = useState(initial?.startingPrice || '$299');
+  const [deliveryTime, setDeliveryTime] = useState(initial?.deliveryTime || '1-2 Weeks');
   const [color, setColor] = useState(initial?.color || '#ab3500');
   const [description, setDescription] = useState(initial?.description || '');
   const [image, setImage] = useState(initial?.image || 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=800&q=80');
@@ -2029,6 +3112,30 @@ const CategoryForm: React.FC<{
             onChange={(e) => setSublabel(e.target.value)}
             placeholder="e.g. E-Commerce"
             className="w-full px-3 py-2 rounded-xl border border-black/10"
+          />
+        </div>
+      </div>
+
+      {/* Starting Price & Delivery */}
+      <div className="grid grid-cols-2 gap-3 p-3 bg-surface-container rounded-2xl border border-black/5">
+        <div>
+          <label className="block font-bold text-emerald-800 mb-1">Starting Price (শুরুর মূল্য)</label>
+          <input
+            type="text"
+            value={startingPrice}
+            onChange={(e) => setStartingPrice(e.target.value)}
+            placeholder="e.g. $299 or $450"
+            className="w-full px-3 py-2 rounded-xl border border-black/10 bg-white font-bold text-emerald-700"
+          />
+        </div>
+        <div>
+          <label className="block font-bold text-[#191c1d] mb-1">Estimated Delivery (সময়সীমা)</label>
+          <input
+            type="text"
+            value={deliveryTime}
+            onChange={(e) => setDeliveryTime(e.target.value)}
+            placeholder="e.g. 1-2 Weeks"
+            className="w-full px-3 py-2 rounded-xl border border-black/10 bg-white"
           />
         </div>
       </div>
@@ -2083,6 +3190,8 @@ const CategoryForm: React.FC<{
               title,
               shortLabel: shortLabel || title,
               sublabel: sublabel || 'Core Service',
+              startingPrice,
+              deliveryTime,
               icon: initial?.icon || 'Layers',
               color,
               bgColor: 'bg-primary-fixed/20',
@@ -2115,6 +3224,10 @@ const SubServiceForm: React.FC<{
   const [catId, setCatId] = useState(selectedCatId);
   const [name, setName] = useState(initial?.name || '');
   const [desc, setDesc] = useState(initial?.desc || '');
+  const [price, setPrice] = useState(initial?.price || '$299');
+  const [pricingType, setPricingType] = useState<SubServiceItem['pricingType']>(initial?.pricingType || 'fixed');
+  const [deliveryTime, setDeliveryTime] = useState(initial?.deliveryTime || '3-5 Days');
+  const [badge, setBadge] = useState(initial?.badge || '');
   const [tagsStr, setTagsStr] = useState(initial?.tags?.join(', ') || '');
   const [delivStr, setDelivStr] = useState(initial?.deliverables?.join('\n') || '');
 
@@ -2136,7 +3249,7 @@ const SubServiceForm: React.FC<{
       </div>
 
       <div>
-        <label className="block font-bold text-[#191c1d] mb-1">Sub-service Name</label>
+        <label className="block font-bold text-[#191c1d] mb-1">Sub-service Name (সার্ভিসের নাম)</label>
         <input
           type="text"
           value={name}
@@ -2144,6 +3257,62 @@ const SubServiceForm: React.FC<{
           placeholder="e.g. Shopify Store Design"
           className="w-full px-3 py-2 rounded-xl border border-black/10"
         />
+      </div>
+
+      {/* Pricing & Delivery Customization Row */}
+      <div className="p-3 bg-surface-container rounded-2xl border border-black/5 space-y-3">
+        <span className="text-[10px] font-mono uppercase font-bold text-emerald-800">
+          💰 Custom Service Pricing & SLA (মূল্য ও সময়সীমা নির্ধারণ)
+        </span>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block font-bold text-[#191c1d] mb-1">Service Price (মূল্য)</label>
+            <input
+              type="text"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              placeholder="e.g. $299, $450, $1200 or 15,000 BDT"
+              className="w-full px-3 py-2 rounded-xl border border-black/10 bg-white font-bold text-emerald-700"
+            />
+          </div>
+          <div>
+            <label className="block font-bold text-[#191c1d] mb-1">Pricing Model (মূল্যের ধরণ)</label>
+            <select
+              value={pricingType || 'fixed'}
+              onChange={(e) => setPricingType(e.target.value as any)}
+              className="w-full px-3 py-2 rounded-xl border border-black/10 bg-white"
+            >
+              <option value="fixed">Fixed Price (নির্দিষ্ট মূল্য)</option>
+              <option value="starting">Starting From (শুরু মূল্য)</option>
+              <option value="monthly">Monthly Retainer (মাসিক)</option>
+              <option value="hourly">Hourly Rate (ঘন্টা প্রতি)</option>
+              <option value="custom">Custom Quote (কাস্টম)</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block font-bold text-[#191c1d] mb-1">Delivery SLA (ডেলিভারি সময়)</label>
+            <input
+              type="text"
+              value={deliveryTime}
+              onChange={(e) => setDeliveryTime(e.target.value)}
+              placeholder="e.g. 3-5 Days, 1 Week"
+              className="w-full px-3 py-2 rounded-xl border border-black/10 bg-white"
+            />
+          </div>
+          <div>
+            <label className="block font-bold text-[#191c1d] mb-1">Promo Badge (ঐচ্ছিক ব্যাজ)</label>
+            <input
+              type="text"
+              value={badge}
+              onChange={(e) => setBadge(e.target.value)}
+              placeholder="e.g. Popular 🔥, Best Value ⭐"
+              className="w-full px-3 py-2 rounded-xl border border-black/10 bg-white"
+            />
+          </div>
+        </div>
       </div>
 
       <div>
@@ -2186,6 +3355,10 @@ const SubServiceForm: React.FC<{
               id: initial?.id || 'sub-' + Date.now(),
               name,
               desc,
+              price,
+              pricingType,
+              deliveryTime,
+              badge,
               tags: tagsStr.split(',').map((t) => t.trim()).filter(Boolean),
               icon: initial?.icon || 'Layout',
               deliverables: delivStr.split('\n').map((d) => d.trim()).filter(Boolean)

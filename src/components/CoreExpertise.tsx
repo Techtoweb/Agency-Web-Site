@@ -40,7 +40,10 @@ import {
   Filter,
   X,
   ChevronRight,
-  ShieldCheck
+  ShieldCheck,
+  Clock,
+  Tag,
+  ShoppingCart
 } from 'lucide-react';
 import { useSiteData } from '../data/siteDataContext';
 import { SERVICES_CATEGORIES, SubServiceItem } from '../data/agencyData';
@@ -49,6 +52,7 @@ interface CoreExpertiseProps {
   selectedCategory: string;
   onSelectService: (categoryId: string) => void;
   onStartProjectForService: (serviceName: string) => void;
+  onOrderService?: (categoryTitle: string, subService: SubServiceItem) => void;
 }
 
 // Icon mapper for subservices
@@ -142,7 +146,8 @@ const getSubserviceIcon = (iconName: string) => {
 export const CoreExpertise: React.FC<CoreExpertiseProps> = ({
   selectedCategory,
   onSelectService,
-  onStartProjectForService
+  onStartProjectForService,
+  onOrderService
 }) => {
   const [activeTab, setActiveTab] = useState<'categories' | 'simulator'>('categories');
   const [searchQuery, setSearchQuery] = useState('');
@@ -201,124 +206,90 @@ export const CoreExpertise: React.FC<CoreExpertiseProps> = ({
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-secondary-fixed/40 text-secondary font-mono text-xs font-semibold mb-4 border border-secondary-fixed"
+          className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-primary/10 text-primary font-mono text-xs font-bold mb-4 border border-primary/20"
         >
-          Specialized Engineering & Growth
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>Services & Tailored Pricing</span>
         </motion.div>
 
         <motion.h2
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.7, delay: 0.1 }}
-          className="text-3xl sm:text-4xl lg:text-[52px] font-extrabold tracking-tight text-[#191c1d] leading-tight mb-4"
+          transition={{ duration: 0.6, delay: 0.1 }}
+          className="text-3xl sm:text-5xl font-extrabold text-[#191c1d] tracking-tight leading-tight mb-4"
         >
-          Our Core Service Pillars
+          Engineered for Revenue & Scale.
         </motion.h2>
 
         <motion.p
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.7, delay: 0.2 }}
-          className="text-base sm:text-lg text-[#594139] leading-relaxed"
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="text-base sm:text-lg text-[#594139] leading-relaxed font-sans"
         >
-          Explore our full range of technical capabilities. Click on any service card to view deliverables and specifications.
+          Explore our specialized engineering disciplines with transparent pricing, guaranteed delivery timeframes, and instant order placement.
         </motion.p>
       </div>
 
-      {/* 5 MAIN PRIMARY OPTIONS GRID */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 sm:gap-5 mb-12">
-        {categoriesList.map((cat, index) => {
+      {/* Top 5 Dominant Category Switcher Tabs */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-8">
+        {categoriesList.map((cat, idx) => {
           const isSelected = selectedCategory === cat.id;
+          const gradientClass = getCategoryGradientClass(cat.id);
+
           return (
             <motion.button
               key={cat.id}
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: index * 0.08 }}
-              onClick={() => {
-                onSelectService(cat.id);
-                setSearchQuery('');
-              }}
-              className={`relative text-left p-5 sm:p-6 rounded-3xl transition-all duration-300 cursor-pointer overflow-hidden border ${
+              transition={{ duration: 0.4, delay: idx * 0.05 }}
+              onClick={() => onSelectService(cat.id)}
+              className={`relative text-left p-4 sm:p-5 rounded-2xl sm:rounded-3xl transition-all duration-300 cursor-pointer overflow-hidden flex flex-col justify-between min-h-[140px] sm:min-h-[160px] ${
                 isSelected
-                  ? `${getCategoryGradientClass(cat.id)} scale-[1.02]`
-                  : 'bg-white text-[#191c1d] hover:bg-white/95 hover:shadow-lg border-white/80 hover:-translate-y-1'
+                  ? `${gradientClass} scale-[1.03] z-10`
+                  : 'bg-white hover:bg-surface-container border border-black/5 hover:border-black/15 shadow-xs hover:shadow-md text-[#191c1d]'
               }`}
             >
-              {/* Top Glow Accent Indicator */}
-              {isSelected && (
-                <motion.div
-                  layoutId="activePillarPill"
-                  className="absolute top-0 left-0 right-0 h-1.5 bg-white/40 shadow-xs backdrop-blur-xs"
-                />
-              )}
-
-              <div className="flex items-start justify-between mb-4">
-                <div
-                  className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all duration-300 ${
-                    isSelected
-                      ? 'bg-white/20 text-white shadow-inner backdrop-blur-md border border-white/30'
-                      : 'bg-surface-container text-[#191c1d]'
-                  }`}
-                >
-                  {cat.id === 'shopify' && <Store className="w-5 h-5" />}
-                  {cat.id === 'web-dev' && <Code2 className="w-5 h-5" />}
-                  {cat.id === 'marketing' && <Megaphone className="w-5 h-5" />}
-                  {cat.id === 'seo' && <Search className="w-5 h-5" />}
-                  {cat.id === 'payment-gateway' && <CreditCard className="w-5 h-5" />}
-                  {!['shopify', 'web-dev', 'marketing', 'seo', 'payment-gateway'].includes(cat.id) && <Layers className="w-5 h-5" />}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span
+                    className={`text-[10px] sm:text-xs font-mono font-bold uppercase tracking-wider ${
+                      isSelected ? 'text-white/90' : 'text-primary'
+                    }`}
+                  >
+                    {cat.shortLabel}
+                  </span>
+                  {isSelected && (
+                    <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                  )}
                 </div>
 
-                <span
-                  className={`text-[10px] font-mono font-bold px-2.5 py-1 rounded-full uppercase tracking-wider ${
-                    isSelected
-                      ? 'bg-white/20 text-white backdrop-blur-md border border-white/30'
-                      : 'bg-surface-container text-[#594139]'
-                  }`}
-                >
-                  {cat.subServices.length} Services
-                </span>
-              </div>
-
-              <div>
-                <span
-                  className={`text-[11px] font-mono font-bold uppercase tracking-wider block mb-1 ${
-                    isSelected ? 'text-white/90 drop-shadow-xs' : 'text-primary'
-                  }`}
-                >
-                  {cat.sublabel}
-                </span>
-                <h3
-                  className={`text-lg sm:text-xl font-extrabold tracking-tight ${
+                <h4
+                  className={`text-sm sm:text-base font-extrabold leading-snug tracking-tight ${
                     isSelected ? 'text-white' : 'text-[#191c1d]'
                   }`}
                 >
-                  {cat.shortLabel}
-                </h3>
+                  {cat.title}
+                </h4>
               </div>
 
-              <div className="mt-5 pt-4 border-t border-white/20 flex items-center justify-between">
+              <div className="pt-2 border-t border-black/5 flex items-center justify-between">
                 <span
-                  className={`text-xs font-mono font-semibold flex items-center gap-1.5 ${
-                    isSelected ? 'text-white' : 'text-primary'
+                  className={`text-[10px] sm:text-xs font-mono font-bold ${
+                    isSelected ? 'text-white/90' : 'text-emerald-700 font-semibold'
                   }`}
                 >
-                  <span>{isSelected ? 'Active Selection' : 'Explore Category'}</span>
-                  <ArrowRight
-                    className={`w-3.5 h-3.5 transition-transform duration-300 ${
-                      isSelected ? 'translate-x-1' : ''
-                    }`}
-                  />
+                  {cat.startingPrice ? `From ${cat.startingPrice}` : (cat.stats?.label || 'Available')}
                 </span>
                 <span
-                  className={`text-[11px] font-mono font-bold ${
-                    isSelected ? 'text-white/90' : 'text-neutral-400'
+                  className={`text-[10px] font-mono font-bold ${
+                    isSelected ? 'text-white/90' : 'text-[#594139]'
                   }`}
                 >
-                  {cat.stats.value}
+                  {cat.subServices?.length || 0} Options
                 </span>
               </div>
             </motion.button>
@@ -336,12 +307,17 @@ export const CoreExpertise: React.FC<CoreExpertiseProps> = ({
               <span>
                 Domain: <strong className="text-primary">{currentCategoryData.shortLabel} ({currentCategoryData.sublabel})</strong>
               </span>
+              {currentCategoryData.startingPrice && (
+                <span className="ml-2 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-mono text-[11px] font-bold">
+                  From {currentCategoryData.startingPrice}
+                </span>
+              )}
             </div>
             <h3 className="text-2xl sm:text-3xl font-extrabold text-[#191c1d] tracking-tight">
               {currentCategoryData.title}
             </h3>
             <p className="text-xs sm:text-sm text-[#594139] mt-1 max-w-2xl">
-              Click any service card to view complete specifications, tools, and deliverables.
+              {currentCategoryData.description}
             </p>
           </div>
 
@@ -357,7 +333,7 @@ export const CoreExpertise: React.FC<CoreExpertiseProps> = ({
                     : 'text-[#594139] hover:text-[#191c1d]'
                 }`}
               >
-                Catalog ({currentCategoryData.subServices.length})
+                Services Catalog ({currentCategoryData.subServices.length})
               </button>
               <button
                 onClick={() => setActiveTab('simulator')}
@@ -411,8 +387,8 @@ export const CoreExpertise: React.FC<CoreExpertiseProps> = ({
                   </button>
                 </div>
               ) : (
-                /* COMPACT, SLEEK & MODERN CARDS GRID */
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+                /* COMPACT, SLEEK & MODERN CARDS GRID WITH EXPLICIT PRICING */
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
                   {filteredSubServices.map((sub, idx) => (
                     <motion.div
                       key={sub.id}
@@ -420,41 +396,63 @@ export const CoreExpertise: React.FC<CoreExpertiseProps> = ({
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.25, delay: idx * 0.03 }}
                       onClick={() => setActiveModalSubService(sub)}
-                      className="group bg-white rounded-2xl p-5 border border-black/5 hover:border-primary/50 transition-all duration-300 flex flex-col justify-between cursor-pointer shadow-xs hover:shadow-lg hover:-translate-y-1 relative overflow-hidden"
+                      className="group bg-white rounded-3xl p-5 border border-black/5 hover:border-primary/50 transition-all duration-300 flex flex-col justify-between cursor-pointer shadow-xs hover:shadow-xl hover:-translate-y-1 relative overflow-hidden"
                     >
                       {/* Top Accent bar on hover */}
-                      <div className="absolute top-0 left-0 right-0 h-1 bg-primary scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
+                      <div className="absolute top-0 left-0 right-0 h-1.5 bg-primary scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
 
                       <div>
-                        {/* Card Header: Icon + Number badge */}
-                        <div className="flex items-center justify-between mb-3.5">
-                          <div className="w-10 h-10 rounded-xl bg-surface-container flex items-center justify-center text-[#191c1d] group-hover:bg-primary group-hover:text-white transition-all duration-300 shadow-2xs">
+                        {/* Card Header: Icon + Price Badge */}
+                        <div className="flex items-start justify-between gap-2 mb-3.5">
+                          <div className="w-10 h-10 rounded-2xl bg-surface-container flex items-center justify-center text-[#191c1d] group-hover:bg-primary group-hover:text-white transition-all duration-300 shadow-2xs shrink-0">
                             {getSubserviceIcon(sub.icon)}
                           </div>
-                          <span className="text-[10px] font-mono text-neutral-400 group-hover:text-primary font-bold transition-colors">
-                            0{idx + 1}
-                          </span>
+                          
+                          <div className="text-right">
+                            {sub.price ? (
+                              <span className="inline-block px-2.5 py-1 rounded-xl bg-emerald-50 text-emerald-800 font-mono text-xs font-bold border border-emerald-200/80 shadow-2xs group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                                {sub.price}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-mono text-neutral-400 group-hover:text-primary font-bold transition-colors">
+                                0{idx + 1}
+                              </span>
+                            )}
+                            {sub.badge && (
+                              <span className="block text-[9px] font-mono font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded mt-0.5">
+                                {sub.badge}
+                              </span>
+                            )}
+                          </div>
                         </div>
 
                         {/* Title - Full Name clearly displayed */}
-                        <h4 className="text-sm sm:text-[15px] font-bold text-[#191c1d] mb-2 group-hover:text-primary transition-colors leading-snug min-h-[42px] flex items-start">
+                        <h4 className="text-sm sm:text-[15px] font-bold text-[#191c1d] mb-1.5 group-hover:text-primary transition-colors leading-snug min-h-[42px] flex items-start">
                           {sub.name}
                         </h4>
 
                         {/* Clean description */}
-                        <p className="text-xs text-[#594139] leading-relaxed line-clamp-2 mb-3.5">
+                        <p className="text-xs text-[#594139] leading-relaxed line-clamp-2 mb-3">
                           {sub.desc}
                         </p>
+
+                        {/* Delivery Time & Key Feature */}
+                        {sub.deliveryTime && (
+                          <div className="flex items-center gap-1.5 text-[11px] font-mono text-[#594139] bg-surface-container/70 px-2.5 py-1 rounded-lg mb-3">
+                            <Clock className="w-3 h-3 text-primary shrink-0" />
+                            <span>Delivery: <strong className="text-[#191c1d]">{sub.deliveryTime}</strong></span>
+                          </div>
+                        )}
                       </div>
 
-                      {/* Card Footer: 1 tag + Click to view indicator */}
+                      {/* Card Footer: View Details & Order Button */}
                       <div className="pt-3 border-t border-surface-variant/60 flex items-center justify-between mt-auto">
-                        <span className="text-[10px] font-mono text-neutral-600 bg-surface-container px-2 py-0.5 rounded-md font-medium">
+                        <span className="text-[10px] font-mono text-neutral-600 bg-surface-container px-2 py-0.5 rounded-md font-medium truncate max-w-[110px]">
                           {sub.tags[0]}
                         </span>
                         
-                        <div className="inline-flex items-center gap-1 text-[11px] font-mono font-bold text-primary group-hover:translate-x-1 transition-transform">
-                          <span>View Details</span>
+                        <div className="inline-flex items-center gap-1 text-[11px] font-mono font-bold text-primary group-hover:translate-x-0.5 transition-transform">
+                          <span>View & Order</span>
                           <ChevronRight className="w-3.5 h-3.5" />
                         </div>
                       </div>
@@ -464,17 +462,17 @@ export const CoreExpertise: React.FC<CoreExpertiseProps> = ({
               )}
 
               {/* Bottom Call to Action for Selected Pillar */}
-              <div className="mt-8 p-5 sm:p-6 rounded-2xl bg-white border border-black/5 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="mt-8 p-5 sm:p-6 rounded-3xl bg-white border border-black/5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xs">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-primary-fixed flex items-center justify-center text-primary shrink-0">
-                    <Sparkles className="w-4 h-4" />
+                  <div className="w-10 h-10 rounded-2xl bg-primary-fixed flex items-center justify-center text-primary shrink-0 shadow-2xs">
+                    <Sparkles className="w-5 h-5" />
                   </div>
                   <div>
                     <h5 className="text-sm font-bold text-[#191c1d]">
-                      Looking for custom {currentCategoryData.shortLabel} development or retainer?
+                      Need a custom or multi-domain package for {currentCategoryData.shortLabel}?
                     </h5>
                     <p className="text-xs text-[#594139]">
-                      We configure bespoke combinations, technical sprints, and dedicated engineers.
+                      We can configure combined sprints, custom payment gateway infrastructure, and dedicated developers.
                     </p>
                   </div>
                 </div>
@@ -483,7 +481,7 @@ export const CoreExpertise: React.FC<CoreExpertiseProps> = ({
                   onClick={() =>
                     onStartProjectForService(`Custom ${currentCategoryData.title} Package`)
                   }
-                  className="bg-primary hover:bg-primary-container text-white font-mono text-xs font-bold px-5 py-2.5 rounded-full transition-all shadow-md hover:scale-105 active:scale-95 shrink-0 cursor-pointer"
+                  className="bg-primary hover:bg-primary-container text-white font-mono text-xs font-bold px-6 py-3 rounded-full transition-all shadow-md hover:scale-105 active:scale-95 shrink-0 cursor-pointer"
                 >
                   Request Custom Quote
                 </button>
@@ -518,284 +516,117 @@ export const CoreExpertise: React.FC<CoreExpertiseProps> = ({
                     className="inline-flex items-center gap-2 bg-[#191c1d] hover:bg-primary text-white font-mono text-xs font-bold px-5 py-3 rounded-full transition-colors cursor-pointer"
                   >
                     <span>Deploy This Architecture</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
+                    <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
               </div>
 
-              <div className="lg:col-span-7">
-                <div className="glass-panel p-6 rounded-3xl border border-white/80 shadow-glass-lg relative overflow-hidden bg-white/95">
-                  {/* Header of simulator widget */}
-                  <div className="flex items-center justify-between pb-4 mb-5 border-b border-surface-variant">
-                    <div className="flex items-center gap-2">
-                      <span className="w-3 h-3 rounded-full bg-rose-400" />
-                      <span className="w-3 h-3 rounded-full bg-amber-400" />
-                      <span className="w-3 h-3 rounded-full bg-emerald-400" />
-                      <span className="ml-2 text-xs font-mono font-bold text-[#594139]">
-                        Interactive Playground
+              {/* Simulation Widgets based on Category */}
+              <div className="lg:col-span-7 bg-white rounded-3xl p-6 sm:p-8 border border-black/5 shadow-sm space-y-6">
+                {currentCategoryData.id === 'shopify' ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between pb-3 border-b border-black/5">
+                      <span className="font-mono text-xs font-bold text-[#191c1d]">
+                        Shopify 2.0 Checkout Simulator
+                      </span>
+                      <span className="text-[10px] font-mono text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full font-bold">
+                        Sub-Second TTFB
                       </span>
                     </div>
-                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-primary bg-primary-fixed/40 px-2.5 py-1 rounded-full">
-                      Live Telemetry
-                    </span>
-                  </div>
 
-                  {/* 1. SHOPIFY CONVERSION SIMULATOR */}
-                  {selectedCategory === 'shopify' && (
-                    <div className="space-y-5">
-                      <div className="flex items-center justify-between bg-surface-container/60 p-1.5 rounded-xl text-xs font-mono">
-                        {[
-                          { id: 'store', label: '1. Storefront' },
-                          { id: 'product', label: '2. Product' },
-                          { id: 'cart', label: '3. Fast Cart' },
-                          { id: 'checkout', label: '4. 1-Click Pay' },
-                        ].map((step) => (
-                          <button
-                            key={step.id}
-                            onClick={() => setShopifyStep(step.id as any)}
-                            className={`flex-1 py-1.5 px-2 rounded-lg font-bold transition-all text-center cursor-pointer ${
-                              shopifyStep === step.id
-                                ? 'bg-white text-primary shadow-xs'
-                                : 'text-[#594139] hover:text-[#191c1d]'
-                            }`}
-                          >
-                            {step.label}
-                          </button>
-                        ))}
-                      </div>
-
-                      <div className="bg-surface rounded-2xl p-5 border border-black/5 relative min-h-[200px] flex flex-col justify-center">
-                        {shopifyStep === 'store' && (
-                          <div className="space-y-3">
-                            <div className="flex justify-between items-center">
-                              <span className="text-xs font-mono font-bold text-[#191c1d]">AURA LUXE STUDIOS</span>
-                              <span className="text-[11px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded">99.8% Speed</span>
-                            </div>
-                            <div className="h-20 bg-gradient-to-r from-primary-fixed/40 to-secondary-fixed/40 rounded-xl flex items-center justify-center text-xs font-mono font-bold text-[#191c1d]">
-                              Hydrogen 2.0 Edge Storefront Loaded
-                            </div>
-                            <div className="grid grid-cols-3 gap-2">
-                              <div className="h-8 bg-white rounded-lg border border-black/5" />
-                              <div className="h-8 bg-white rounded-lg border border-black/5" />
-                              <div className="h-8 bg-white rounded-lg border border-black/5" />
-                            </div>
-                          </div>
-                        )}
-
-                        {shopifyStep === 'product' && (
-                          <div className="flex items-center gap-4">
-                            <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-[#ffdbd0] to-[#dde1ff] flex items-center justify-center text-2xl shadow-inner shrink-0">
-                              🛋️
-                            </div>
-                            <div className="space-y-1.5 flex-1">
-                              <div className="text-sm font-bold text-[#191c1d]">Sculptural Lounge Chair</div>
-                              <div className="text-xs font-mono text-primary font-bold">$1,280 USD</div>
-                              <button
-                                onClick={() => setShopifyStep('cart')}
-                                className="mt-1 text-xs bg-primary text-white font-mono px-3 py-1 rounded-lg flex items-center gap-1.5 cursor-pointer"
-                              >
-                                <ShoppingBag className="w-3 h-3" />
-                                <span>Add to Bag</span>
-                              </button>
-                            </div>
-                          </div>
-                        )}
-
-                        {shopifyStep === 'cart' && (
-                          <div className="space-y-3">
-                            <div className="flex justify-between items-center text-xs font-bold text-[#191c1d]">
-                              <span>Drawer Cart (0.1s Slide)</span>
-                              <span className="text-emerald-600 font-mono">Free Global Express</span>
-                            </div>
-                            <div className="p-2.5 bg-white rounded-xl border border-black/5 flex justify-between items-center">
-                              <div className="text-xs font-medium text-[#191c1d]">Sculptural Lounge Chair (x1)</div>
-                              <div className="text-xs font-mono font-bold text-primary">$1,280</div>
-                            </div>
-                            <button
-                              onClick={() => setShopifyStep('checkout')}
-                              className="w-full bg-[#191c1d] hover:bg-primary text-white text-xs font-mono font-bold py-2 rounded-xl flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                            >
-                              <CreditCard className="w-3.5 h-3.5" />
-                              <span>Proceed to 1-Click Checkout</span>
-                            </button>
-                          </div>
-                        )}
-
-                        {shopifyStep === 'checkout' && (
-                          <div className="text-center space-y-2 py-2">
-                            <div className="w-9 h-9 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
-                              <Check className="w-4 h-4" />
-                            </div>
-                            <div className="text-sm font-bold text-[#191c1d]">Hydrogen Checkout Authorized</div>
-                            <p className="text-xs text-[#594139]">Processed in 1.2 seconds total.</p>
-                            <div className="text-[11px] font-mono text-primary font-bold">Conversion Rate: 4.8% (Benchmark: 1.8%)</div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 2. WEB DEV INTERACTIVE INSPECTOR */}
-                  {selectedCategory === 'web-dev' && (
-                    <div className="space-y-4">
-                      <div className="flex gap-2">
-                        {(['preview', 'code', 'vitals'] as const).map((tab) => (
-                          <button
-                            key={tab}
-                            onClick={() => setWebDevTab(tab)}
-                            className={`text-xs font-mono font-bold px-3 py-1.5 rounded-lg capitalize transition-all cursor-pointer ${
-                              webDevTab === tab
-                                ? 'bg-secondary text-white shadow-xs'
-                                : 'bg-surface-container text-[#594139] hover:bg-white'
-                            }`}
-                          >
-                            {tab}
-                          </button>
-                        ))}
-                      </div>
-
-                      {webDevTab === 'preview' && (
-                        <div className="p-4 bg-white rounded-2xl border border-black/5 space-y-3">
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs font-mono font-bold text-secondary">React 19 + Next.js App Router</span>
-                            <span className="text-[10px] font-mono bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-bold">
-                              SSR Edge Deployed
-                            </span>
-                          </div>
-                          <div className="h-16 bg-gradient-to-r from-secondary-fixed/30 to-tertiary-fixed/30 rounded-xl p-3 flex flex-col justify-between">
-                            <div className="text-xs font-bold text-[#191c1d]">Enterprise SaaS Architecture</div>
-                            <div className="flex gap-2">
-                              <div className="h-1.5 bg-secondary rounded-full w-3/4" />
-                              <div className="h-1.5 bg-primary-container rounded-full w-1/4" />
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
-                            <div className="p-2 bg-surface rounded-lg">TTFB: <span className="font-bold text-emerald-600">28ms</span></div>
-                            <div className="p-2 bg-surface rounded-lg">Bundle: <span className="font-bold text-emerald-600">14kb gzip</span></div>
-                          </div>
-                        </div>
-                      )}
-
-                      {webDevTab === 'code' && (
-                        <div className="p-4 bg-[#191c1d] rounded-2xl font-mono text-[11px] text-emerald-400 space-y-1 overflow-x-auto">
-                          <p className="text-neutral-500">// Modular High-Velocity Web Component</p>
-                          <p><span className="text-purple-400">export const</span> <span className="text-yellow-300">FastApp</span> = () =&gt; &#123;</p>
-                          <p className="pl-3"><span className="text-purple-400">const</span> vitals = <span className="text-blue-400">usePerformanceMetrics</span>();</p>
-                          <p className="pl-3"><span className="text-purple-400">return</span> &lt;<span className="text-rose-400">EdgeRenderer</span> score=&#123;<span className="text-amber-300">100</span>&#125; /&gt;;</p>
-                          <p>&#125;;</p>
-                        </div>
-                      )}
-
-                      {webDevTab === 'vitals' && (
-                        <div className="grid grid-cols-4 gap-2 text-center">
-                          {[
-                            { metric: 'Perf', val: '100' },
-                            { metric: 'Access', val: '100' },
-                            { metric: 'Best', val: '100' },
-                            { metric: 'SEO', val: '100' },
-                          ].map((item, i) => (
-                            <div key={i} className="p-3 bg-white rounded-xl border border-black/5">
-                              <div className="w-9 h-9 rounded-full border-2 border-emerald-500 text-emerald-600 flex items-center justify-center mx-auto text-xs font-mono font-bold mb-1">
-                                {item.val}
-                              </div>
-                              <div className="text-[10px] font-mono text-[#594139]">{item.metric}</div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* 3. DIGITAL MARKETING ROAS SIMULATOR */}
-                  {selectedCategory === 'marketing' && (
-                    <div className="space-y-4">
-                      <div>
-                        <div className="flex justify-between items-center text-xs font-mono font-bold text-[#191c1d] mb-2">
-                          <span>Monthly Media Budget:</span>
-                          <span className="text-primary text-sm">${marketingBudget.toLocaleString()}</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="1000"
-                          max="25000"
-                          step="500"
-                          value={marketingBudget}
-                          onChange={(e) => setMarketingBudget(Number(e.target.value))}
-                          className="w-full accent-primary h-2 bg-surface-variant rounded-lg cursor-pointer"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2">
-                        <div className="p-2.5 bg-white rounded-xl border border-black/5 text-center">
-                          <div className="text-[11px] text-[#594139] font-mono">Est. Revenue</div>
-                          <div className="text-sm font-extrabold text-primary font-mono mt-0.5">
-                            ${marketingMetrics.revenue.toLocaleString()}
-                          </div>
-                        </div>
-                        <div className="p-2.5 bg-white rounded-xl border border-black/5 text-center">
-                          <div className="text-[11px] text-[#594139] font-mono">Blended ROAS</div>
-                          <div className="text-sm font-extrabold text-emerald-600 font-mono mt-0.5">
-                            {marketingMetrics.roas}x
-                          </div>
-                        </div>
-                        <div className="p-2.5 bg-white rounded-xl border border-black/5 text-center">
-                          <div className="text-[11px] text-[#594139] font-mono">Target Leads</div>
-                          <div className="text-sm font-extrabold text-[#191c1d] font-mono mt-0.5">
-                            {marketingMetrics.leads}
-                          </div>
-                        </div>
-                        <div className="p-2.5 bg-white rounded-xl border border-black/5 text-center">
-                          <div className="text-[11px] text-[#594139] font-mono">Clicks</div>
-                          <div className="text-sm font-extrabold text-[#191c1d] font-mono mt-0.5">
-                            {marketingMetrics.clicks}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 4. SEO KEYWORD ELEVATOR SIMULATOR */}
-                  {selectedCategory === 'seo' && (
-                    <div className="space-y-4">
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={seoKeyword}
-                          onChange={(e) => setSeoKeyword(e.target.value)}
-                          placeholder="Enter target search query..."
-                          className="flex-1 px-3 py-2 text-xs font-mono bg-white rounded-xl border border-black/10 focus:outline-none focus:ring-1 focus:ring-[#00696e]"
-                        />
+                    <div className="flex gap-2">
+                      {['store', 'product', 'cart', 'checkout'].map((step) => (
                         <button
-                          onClick={handleSimulateSeo}
-                          disabled={isSimulatingSeo}
-                          className="px-3.5 py-2 bg-[#00696e] hover:bg-[#00383a] text-white text-xs font-mono font-bold rounded-xl transition-colors shrink-0 cursor-pointer"
+                          key={step}
+                          onClick={() => setShopifyStep(step as any)}
+                          className={`flex-1 py-2 text-center rounded-xl text-xs font-mono capitalize transition-all cursor-pointer ${
+                            shopifyStep === step
+                              ? 'bg-primary text-white font-bold shadow-xs'
+                              : 'bg-surface text-[#594139] hover:bg-surface-container'
+                          }`}
                         >
-                          {isSimulatingSeo ? 'Auditing...' : 'Rank #1'}
+                          {step}
                         </button>
-                      </div>
+                      ))}
+                    </div>
 
-                      <div className="p-3 bg-white rounded-xl border border-black/5 space-y-1.5">
-                        <div className="text-[10px] font-mono text-neutral-400">https://yourbrand.com › shop</div>
-                        <div className="text-xs font-bold text-blue-700 hover:underline">
-                          {seoKeyword.charAt(0).toUpperCase() + seoKeyword.slice(1)} | Official Store 2026
-                        </div>
-                        <div className="flex items-center gap-2 pt-1 text-[10px] font-mono">
-                          <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded font-bold">
-                            Rank: #{seoRank}
-                          </span>
-                          <span className="text-[#00696e] font-bold">CTR: 36.4%</span>
-                        </div>
+                    <div className="p-4 rounded-2xl bg-surface-container border border-black/5 text-xs font-mono space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-[#594139]">Active Step:</span>
+                        <span className="font-bold text-[#191c1d] uppercase">{shopifyStep}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-[#594139]">Liquid Render Time:</span>
+                        <span className="font-bold text-emerald-600">84ms (Edge Cached)</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-[#594139]">Conversion Uplift:</span>
+                        <span className="font-bold text-primary">+42.8% Average</span>
                       </div>
                     </div>
-                  )}
-                </div>
+                  </div>
+                ) : currentCategoryData.id === 'payment-gateway' ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between pb-3 border-b border-black/5">
+                      <span className="font-mono text-xs font-bold text-[#191c1d]">
+                        Global Merchant & Payment Gateway Simulator
+                      </span>
+                      <span className="text-[10px] font-mono text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full font-bold">
+                        100% Approval Rate
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 text-xs font-mono">
+                      <div className="p-3.5 rounded-2xl bg-surface-container border border-black/5">
+                        <span className="text-[#594139] block text-[10px]">Formation Type</span>
+                        <span className="font-bold text-[#191c1d]">Wyoming USA LLC / UK LTD</span>
+                      </div>
+                      <div className="p-3.5 rounded-2xl bg-surface-container border border-black/5">
+                        <span className="text-[#594139] block text-[10px]">Gateways Connected</span>
+                        <span className="font-bold text-emerald-600">Stripe US + PayPal + Mercury</span>
+                      </div>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs font-mono text-emerald-900 space-y-1">
+                      <div className="font-bold flex items-center gap-1.5">
+                        <ShieldCheck className="w-4 h-4 text-emerald-700" />
+                        <span>Ready for Global Checkout in 135+ Currencies</span>
+                      </div>
+                      <p className="text-[11px] text-emerald-800">
+                        Zero border restrictions. Instant card checkout with 3D Secure 2.0.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between pb-3 border-b border-black/5">
+                      <span className="font-mono text-xs font-bold text-[#191c1d]">
+                        High-Scale Digital Engine
+                      </span>
+                      <span className="text-[10px] font-mono text-primary bg-primary-fixed/50 px-2 py-0.5 rounded-full font-bold">
+                        Ultra-Fast SLA
+                      </span>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-surface-container border border-black/5 text-xs font-mono space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-[#594139]">System Architecture:</span>
+                        <span className="font-bold text-[#191c1d]">React 19 + TypeScript + Edge API</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-[#594139]">Lighthouse Score:</span>
+                        <span className="font-bold text-emerald-600">99/100 Core Web Vitals</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      {/* DETAILED SERVICE MODAL POPUP (ON CARD CLICK) */}
+      {/* DETAILED SUB-SERVICE SPECIFICATION & ORDER MODAL */}
       <AnimatePresence>
         {activeModalSubService && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 md:p-10">
@@ -814,7 +645,7 @@ export const CoreExpertise: React.FC<CoreExpertiseProps> = ({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="relative w-full max-w-2xl bg-white rounded-[28px] sm:rounded-[32px] p-6 sm:p-8 shadow-2xl border border-white/60 z-10 max-h-[90vh] overflow-y-auto"
+              className="relative w-full max-w-2xl bg-white rounded-[28px] sm:rounded-[36px] p-6 sm:p-8 shadow-2xl border border-white/60 z-10 max-h-[90vh] overflow-y-auto"
             >
               {/* Close Button */}
               <button
@@ -826,17 +657,49 @@ export const CoreExpertise: React.FC<CoreExpertiseProps> = ({
 
               {/* Modal Header */}
               <div className="flex items-start gap-4 mb-6 pr-8">
-                <div className="w-13 h-13 rounded-2xl bg-primary-fixed text-primary flex items-center justify-center shrink-0 shadow-xs">
+                <div className="w-14 h-14 rounded-2xl bg-primary-fixed text-primary flex items-center justify-center shrink-0 shadow-xs">
                   {getSubserviceIcon(activeModalSubService.icon)}
                 </div>
                 <div>
-                  <span className="text-xs font-mono font-bold uppercase tracking-wider text-primary block mb-1">
-                    {currentCategoryData.shortLabel} / {currentCategoryData.sublabel}
-                  </span>
-                  <h3 className="text-xl sm:text-2xl font-extrabold text-[#191c1d] leading-tight">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-mono font-bold uppercase tracking-wider text-primary">
+                      {currentCategoryData.shortLabel} / {currentCategoryData.sublabel}
+                    </span>
+                    {activeModalSubService.badge && (
+                      <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 font-mono text-[10px] font-bold">
+                        {activeModalSubService.badge}
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-xl sm:text-2xl font-extrabold text-[#191c1d] leading-tight mt-1">
                     {activeModalSubService.name}
                   </h3>
                 </div>
+              </div>
+
+              {/* Pricing & Delivery Summary Box */}
+              <div className="mb-6 p-4 rounded-2xl bg-surface-container border border-black/5 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <span className="text-[10px] font-mono text-[#594139] uppercase block font-bold">Package Investment</span>
+                  <span className="text-xl sm:text-2xl font-extrabold text-emerald-700 font-mono">
+                    {activeModalSubService.price || currentCategoryData.startingPrice || 'Custom Quote'}
+                  </span>
+                  {activeModalSubService.pricingType && (
+                    <span className="text-[11px] font-mono text-[#594139] ml-1.5">
+                      ({activeModalSubService.pricingType})
+                    </span>
+                  )}
+                </div>
+
+                {activeModalSubService.deliveryTime && (
+                  <div className="text-right">
+                    <span className="text-[10px] font-mono text-[#594139] uppercase block font-bold">Turnaround Time</span>
+                    <span className="text-sm font-bold text-[#191c1d] font-mono flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5 text-primary" />
+                      {activeModalSubService.deliveryTime}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Detailed Description */}
@@ -853,7 +716,7 @@ export const CoreExpertise: React.FC<CoreExpertiseProps> = ({
                   <span>Key Deliverables & Specifications</span>
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {activeModalSubService.deliverables.map((deliv, dIdx) => (
+                  {activeModalSubService.deliverables?.map((deliv, dIdx) => (
                     <div
                       key={dIdx}
                       className="p-3 rounded-xl bg-white border border-black/5 shadow-2xs flex items-start gap-2.5 text-xs text-[#191c1d]"
@@ -868,10 +731,10 @@ export const CoreExpertise: React.FC<CoreExpertiseProps> = ({
               {/* Technology & Framework Tags */}
               <div className="mb-8">
                 <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-[#191c1d] mb-2.5">
-                  Technologies & Frameworks
+                  Technologies & Standards
                 </h4>
                 <div className="flex flex-wrap gap-2">
-                  {activeModalSubService.tags.map((tag, tIdx) => (
+                  {activeModalSubService.tags?.map((tag, tIdx) => (
                     <span
                       key={tIdx}
                       className="text-xs font-mono bg-surface-container text-[#191c1d] px-3 py-1 rounded-lg border border-black/5 font-semibold"
@@ -882,7 +745,7 @@ export const CoreExpertise: React.FC<CoreExpertiseProps> = ({
                 </div>
               </div>
 
-              {/* Modal Footer Actions */}
+              {/* Modal Footer Actions: Order Service Now */}
               <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-surface-variant">
                 <button
                   onClick={() => setActiveModalSubService(null)}
@@ -893,14 +756,18 @@ export const CoreExpertise: React.FC<CoreExpertiseProps> = ({
 
                 <button
                   onClick={() => {
-                    const serviceTitle = `${currentCategoryData.shortLabel} - ${activeModalSubService.name}`;
+                    const sub = activeModalSubService;
                     setActiveModalSubService(null);
-                    onStartProjectForService(serviceTitle);
+                    if (onOrderService) {
+                      onOrderService(currentCategoryData.title, sub);
+                    } else {
+                      onStartProjectForService(`${currentCategoryData.shortLabel} - ${sub.name}`);
+                    }
                   }}
-                  className="w-full sm:w-auto bg-primary hover:bg-primary-container text-white font-mono text-xs font-bold px-6 py-3 rounded-full transition-all shadow-md hover:scale-105 flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full sm:w-auto bg-primary hover:bg-primary-container text-white font-mono text-xs font-bold px-7 py-3.5 rounded-full transition-all shadow-md hover:scale-105 flex items-center justify-center gap-2 cursor-pointer active:scale-95"
                 >
-                  <span>Start With This Service</span>
-                  <ArrowRight className="w-4 h-4" />
+                  <ShoppingCart className="w-4 h-4" />
+                  <span>Order This Service Now {activeModalSubService.price ? `(${activeModalSubService.price})` : ''}</span>
                 </button>
               </div>
             </motion.div>

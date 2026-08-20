@@ -1,12 +1,24 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { ArrowUpRight, Sparkles, Zap, Shield, Rocket } from 'lucide-react';
+import { ArrowUpRight, Sparkles, Zap, Shield, Rocket, MessageCircle, Mail, Headphones } from 'lucide-react';
+import { useSiteData } from '../data/siteDataContext';
 
 interface CTASectionProps {
   onStartProject: () => void;
 }
 
 export const CTASection: React.FC<CTASectionProps> = ({ onStartProject }) => {
+  const { siteData } = useSiteData();
+  const settings = siteData?.siteSettings || {
+    email: 'techtowebadmin@gmail.com',
+    whatsapp: '+1 (800) 555-0199',
+    phone: '+1 (800) 555-0199'
+  };
+
+  const rawWhatsapp = settings.whatsapp || settings.phone || '+1 (800) 555-0199';
+  const cleanWhatsapp = rawWhatsapp.replace(/[^0-9]/g, '');
+  const supportEmail = settings.email || 'techtowebadmin@gmail.com';
+
   return (
     <section id="contact" className="max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-20 mb-20 md:mb-28">
       <div className="bg-gradient-to-br from-[#191c1d] via-[#24292b] to-[#191c1d] text-white rounded-[32px] sm:rounded-[40px] p-8 sm:p-14 lg:p-20 relative overflow-hidden shadow-2xl border border-white/10">
@@ -47,21 +59,40 @@ export const CTASection: React.FC<CTASectionProps> = ({ onStartProject }) => {
             Transform your digital footprint with high-velocity engineering, bespoke Shopify architecture, and compound marketing growth.
           </motion.p>
 
+          {/* Action Buttons: Proposal + WhatsApp + Email */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.7, delay: 0.3 }}
-            className="flex flex-wrap items-center justify-center gap-4"
+            className="flex flex-wrap items-center justify-center gap-3.5"
           >
             <button
               onClick={onStartProject}
               data-cursor-text="START"
-              className="bg-primary hover:bg-primary-container text-white font-mono text-sm sm:text-base font-bold px-8 sm:px-10 py-4 sm:py-4.5 rounded-full shadow-xl shadow-primary/30 hover:shadow-2xl hover:scale-105 transition-all duration-300 flex items-center gap-3 cursor-pointer active:scale-95"
+              className="bg-primary hover:bg-primary-container text-white font-mono text-sm sm:text-base font-bold px-8 sm:px-9 py-4 rounded-full shadow-xl shadow-primary/30 hover:shadow-2xl hover:scale-105 transition-all duration-300 flex items-center gap-3 cursor-pointer active:scale-95"
             >
               <span>Start a Project</span>
               <ArrowUpRight className="w-5 h-5" />
             </button>
+
+            <a
+              href={`https://wa.me/${cleanWhatsapp}?text=${encodeURIComponent('Hello Tech To Web Support Team, I would like to inquire about starting a project.')}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2.5 bg-[#25D366] hover:bg-[#20bd5a] text-white font-mono text-sm font-bold px-6 py-4 rounded-full shadow-lg shadow-emerald-500/20 hover:scale-105 transition-all duration-300 cursor-pointer active:scale-95"
+            >
+              <MessageCircle className="w-5 h-5 fill-current" />
+              <span>WhatsApp Chat</span>
+            </a>
+
+            <a
+              href={`mailto:${supportEmail}?subject=${encodeURIComponent('Project Inquiry & Consultation - Tech To Web')}&body=${encodeURIComponent('Hi Tech To Web Support Team,\n\nI am contacting you to discuss my project requirements...\n\nThank you.')}`}
+              className="inline-flex items-center gap-2.5 bg-white/10 hover:bg-white/20 text-white font-mono text-sm font-bold px-6 py-4 rounded-full border border-white/20 hover:scale-105 transition-all duration-300 cursor-pointer active:scale-95 backdrop-blur-md"
+            >
+              <Mail className="w-5 h-5 text-amber-400" />
+              <span>Email Support</span>
+            </a>
           </motion.div>
 
           {/* Guarantee Badges */}

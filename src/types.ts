@@ -7,6 +7,10 @@ export interface SubServiceItem {
   tags: string[];
   icon: string;
   deliverables: string[];
+  price?: string;
+  deliveryTime?: string;
+  pricingType?: 'fixed' | 'starting' | 'monthly' | 'hourly' | 'custom';
+  badge?: string;
 }
 
 export interface ServiceCategoryDetail {
@@ -21,6 +25,8 @@ export interface ServiceCategoryDetail {
   description: string;
   image: string;
   stats: { label: string; value: string };
+  startingPrice?: string;
+  deliveryTime?: string;
   subServices: SubServiceItem[];
 }
 
@@ -35,6 +41,7 @@ export interface ServiceItem {
   metrics: string;
   color: string;
   accentBg: string;
+  price?: string;
 }
 
 export interface ProjectItem {
@@ -119,6 +126,7 @@ export interface SiteSettingsConfig {
   whatsapp: string;
   address: string;
   footerNote: string;
+  notificationSound?: boolean;
 }
 
 export interface CustomPageSection {
@@ -146,16 +154,29 @@ export interface SectionVisibilityConfig {
 
 export interface LeadInquiry {
   id: string;
-  type: 'contact' | 'proposal';
+  type?: 'contact' | 'proposal' | 'order';
+  orderType?: 'contact' | 'proposal' | 'order';
   name: string;
   email: string;
+  phone?: string;
+  whatsapp?: string;
   company?: string;
+  website?: string;
   service: string;
+  subService?: string;
+  price?: string;
+  servicePrice?: string;
   budget?: string;
+  deliveryTime?: string;
   timeline?: string;
   message?: string;
-  status: 'new' | 'contacted' | 'in_progress' | 'completed';
+  description?: string;
+  requirements?: string;
+  notes?: string;
+  status: 'new' | 'contacted' | 'in_progress' | 'completed' | 'cancelled';
+  isRead?: boolean;
   createdAt: string;
+  timestamp?: number;
 }
 
 export interface SiteDataState {
@@ -179,4 +200,5 @@ export const isAuthorizedAdminEmail = (email?: string | null): boolean => {
   const clean = email.trim().toLowerCase();
   return ADMIN_EMAILS.some((adm) => adm.toLowerCase() === clean);
 };
+
 

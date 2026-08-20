@@ -12,7 +12,10 @@ import {
   ShieldCheck,
   FolderGit2,
   Send,
-  Sliders
+  Sliders,
+  MessageCircle,
+  Mail,
+  Headphones
 } from 'lucide-react';
 import { UserProfile, AuthTab, isAuthorizedAdminEmail } from '../types';
 import { useSiteData } from '../data/siteDataContext';
@@ -41,6 +44,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const rawWhatsapp = settings?.whatsapp || settings?.phone || '+1 (800) 555-0199';
+  const cleanWhatsapp = rawWhatsapp.replace(/[^0-9]/g, '');
+  const supportEmail = settings?.email || 'techtowebadmin@gmail.com';
 
   // Strict Admin Check: Only authorized admin emails (techtowebadmin@gmail.com / techtoweadmin@gmail.com)
   const isAdmin = isAuthorizedAdminEmail(user?.email);
@@ -105,7 +112,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             : 'py-6 bg-transparent'
         }`}
       >
-        <div className="max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-20 flex justify-between items-center">
+        <div className="max-w-[1360px] mx-auto px-8 sm:px-12 lg:px-20 flex justify-between items-center">
           {/* Logo */}
           <a
             href="#home"
@@ -149,7 +156,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             })}
           </nav>
 
-          {/* Desktop Auth & CTA Area */}
+          {/* Desktop Auth Area */}
           <div className="hidden sm:flex items-center gap-3">
             {/* If NOT logged in: Only Login Button */}
             {!user ? (
@@ -346,6 +353,40 @@ export const Navbar: React.FC<NavbarProps> = ({
                   {link.name}
                 </a>
               ))}
+
+              {/* Live Support Channels on Mobile */}
+              <div className="p-3.5 rounded-2xl bg-surface-container border border-black/5 space-y-2">
+                <div className="flex items-center justify-between text-[11px] font-mono font-bold text-[#594139]">
+                  <span className="flex items-center gap-1">
+                    <Headphones className="w-3.5 h-3.5 text-primary" /> Live Support 24/7
+                  </span>
+                  <span className="text-emerald-700 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Online
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <a
+                    href={`https://wa.me/${cleanWhatsapp}?text=${encodeURIComponent('Hello Tech To Web Support, I am visiting your website and would like to chat.')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-[#25D366] text-white font-mono text-xs font-bold shadow-xs hover:bg-[#20bd5a] transition-all"
+                  >
+                    <MessageCircle className="w-3.5 h-3.5 fill-current" />
+                    <span>WhatsApp</span>
+                  </a>
+
+                  <a
+                    href={`mailto:${supportEmail}?subject=${encodeURIComponent('Support & Project Inquiry - Tech To Web')}&body=${encodeURIComponent('Hi Tech To Web Support Team,\n\nI would like to inquire about...')}`}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-[#191c1d] text-white font-mono text-xs font-bold shadow-xs hover:bg-black transition-all"
+                  >
+                    <Mail className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Email Us</span>
+                  </a>
+                </div>
+              </div>
 
               <div className="pt-4 border-t border-surface-variant flex flex-col gap-2.5">
                 {!user ? (

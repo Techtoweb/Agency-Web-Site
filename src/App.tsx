@@ -17,14 +17,29 @@ import { ContactModal } from './components/ContactModal';
 import { ProjectModal } from './components/ProjectModal';
 import { AuthModal } from './components/AuthModal';
 import { AdminPanel } from './components/AdminPanel';
+import { FloatingSupportWidget } from './components/FloatingSupportWidget';
 import { CustomSectionRenderer } from './components/CustomSectionRenderer';
 import { useSiteData } from './data/siteDataContext';
 import { ProjectItem, UserProfile, AuthTab, isAuthorizedAdminEmail } from './types';
+import { SubServiceItem } from './data/agencyData';
 
 export default function App() {
   const { siteData } = useSiteData();
-  const [isContactOpen, setIsContactOpen] = useState(false);
-  const [contactDefaultService, setContactDefaultService] = useState('Shopify Plus Solutions');
+  const [contactModalProps, setContactModalProps] = useState<{
+    isOpen: boolean;
+    service: string;
+    subService?: string;
+    price?: string;
+    delivery?: string;
+    orderType: 'order' | 'proposal' | 'contact';
+  }>({
+    isOpen: false,
+    service: 'Shopify Solutions',
+    subService: '',
+    price: '',
+    delivery: '',
+    orderType: 'order'
+  });
   const [selectedCategory, setSelectedCategory] = useState('shopify');
   const [selectedProject, setSelectedProject] = useState<ProjectItem | null>(null);
 
@@ -47,7 +62,7 @@ export default function App() {
   // Strict Admin Check: Only authorized admin emails (techtowebadmin@gmail.com / techtoweadmin@gmail.com)
   const isAdmin = isAuthorizedAdminEmail(user?.email);
 
-  const sectionVis = siteData?.sectionVisibility || {
+  const sectionVis = siteData?.sectionsVisibility || {
     hero: true,
     stats: true,
     services: true,
@@ -127,11 +142,32 @@ export default function App() {
     });
   };
 
-  const handleOpenContact = (serviceName?: string) => {
-    if (serviceName) {
-      setContactDefaultService(serviceName);
-    }
-    setIsContactOpen(true);
+  const handleOpenContact = (
+    serviceName?: string,
+    subServiceName?: string,
+    price?: string,
+    delivery?: string,
+    orderType: 'order' | 'proposal' | 'contact' = 'proposal'
+  ) => {
+    setContactModalProps({
+      isOpen: true,
+      service: serviceName || 'Shopify Solutions',
+      subService: subServiceName || '',
+      price: price || '',
+      delivery: delivery || '',
+      orderType
+    });
+  };
+
+  const handleOrderService = (categoryTitle: string, subService: SubServiceItem) => {
+    setContactModalProps({
+      isOpen: true,
+      service: categoryTitle,
+      subService: subService.name,
+      price: subService.price || '',
+      delivery: subService.deliveryTime || '',
+      orderType: 'order'
+    });
   };
 
   const handleServiceInquirySubmitted = (serviceName: string) => {
@@ -239,6 +275,7 @@ export default function App() {
               handleSelectServiceCategory(cat);
             }}
             onStartProjectForService={(svc) => handleOpenContact(svc)}
+            onOrderService={handleOrderService}
           />
         )}
 
@@ -248,9 +285,9 @@ export default function App() {
         )}
 
         {/* Custom Dynamic Sections created in Admin */}
-        {siteData?.sections &&
-          siteData.sections.length > 0 &&
-          siteData.sections.map((sec) => (
+        {siteData?.customSections &&
+          siteData.customSections.length > 0 &&
+          siteData.customSections.map((sec) => (
             <CustomSectionRenderer
               key={sec.id}
               section={sec}
@@ -288,6 +325,13 @@ export default function App() {
         />
       )}
 
+      {/* Global 24/7 Live Support Widget (WhatsApp & Email) */}
+      <FloatingSupportWidget
+        onOpenContactModal={(serviceName, subServiceName, price, delivery, orderType) => {
+          handleOpenContact(serviceName, subServiceName, price, delivery, orderType);
+        }}
+      />
+
       {/* Floating CMS Admin Quick Access Button (Only visible if logged in as techtowebadmin@gmail.com) */}
       {isAdmin && (
         <div className="fixed bottom-6 left-6 z-40">
@@ -314,9 +358,13 @@ export default function App() {
 
       {/* Modals */}
       <ContactModal
-        isOpen={isContactOpen}
-        onClose={() => setIsContactOpen(false)}
-        defaultService={contactDefaultService}
+        isOpen={contactModalProps.isOpen}
+        onClose={() => setContactModalProps((prev) => ({ ...prev, isOpen: false }))}
+        defaultService={contactModalProps.service}
+        defaultSubService={contactModalProps.subService}
+        defaultPrice={contactModalProps.price}
+        defaultDelivery={contactModalProps.delivery}
+        orderType={contactModalProps.orderType}
         onServiceInquirySubmitted={handleServiceInquirySubmitted}
       />
 
