@@ -159,6 +159,7 @@ export interface LeadInquiry {
 }
 
 export interface SiteDataState {
+  lastUpdated?: number;
   hero: HeroContentConfig;
   siteSettings: SiteSettingsConfig;
   categories: ServiceCategoryDetail[];

@@ -180,27 +180,7 @@ export const SiteDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return INITIAL_STATE;
   });
 
-  // Save to localStorage on change and sync to Firestore
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(siteData));
-    } catch (e) {
-      console.error('Failed to save CMS data to localStorage:', e);
-    }
-
-    // Background Firestore Sync
-    try {
-      const docRef = doc(db, 'site_cms', 'main_config');
-      setDoc(docRef, siteData, { merge: true }).catch((err) => {
-        // Log silently or ignore offline / permission in initial dev mode
-        console.info('Firestore background sync status:', err?.message || 'queued');
-      });
-    } catch (e) {
-      // Ignore sync failure
-    }
-  }, [siteData]);
-
-  // Initial load from Firestore if available
+  // Initial load from Firestore with conflict resolution (only apply if remote is newer)
   useEffect(() => {
     try {
       const docRef = doc(db, 'site_cms', 'main_config');
@@ -210,18 +190,28 @@ export const SiteDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           if (snapshot.exists()) {
             const remoteData = snapshot.data() as Partial<SiteDataState>;
             if (remoteData && Object.keys(remoteData).length > 0) {
-              setSiteData((prev) => ({
-                ...prev,
-                ...remoteData,
-                hero: { ...prev.hero, ...(remoteData.hero || {}) },
-                siteSettings: { ...prev.siteSettings, ...(remoteData.siteSettings || {}) },
-                sectionsVisibility: { ...prev.sectionsVisibility, ...(remoteData.sectionsVisibility || {}) }
-              }));
+              setSiteData((prev) => {
+                // If remote has a timestamp and it is NOT newer than local, ignore stale remote snapshot
+                const localTimestamp = prev.lastUpdated || 0;
+                const remoteTimestamp = remoteData.lastUpdated || 0;
+                if (remoteTimestamp > 0 && remoteTimestamp < localTimestamp) {
+                  return prev; // Keep current local data
+                }
+
+                return {
+                  ...prev,
+                  ...remoteData,
+                  lastUpdated: Math.max(localTimestamp, remoteTimestamp),
+                  hero: { ...prev.hero, ...(remoteData.hero || {}) },
+                  siteSettings: { ...prev.siteSettings, ...(remoteData.siteSettings || {}) },
+                  sectionsVisibility: { ...prev.sectionsVisibility, ...(remoteData.sectionsVisibility || {}) }
+                };
+              });
             }
           }
         },
         (err) => {
-          console.info('Firestore subscription notice:', err?.message || 'Offline fallback active');
+          console.info('Firestore subscription status:', err?.message || 'Offline local fallback active');
         }
       );
 
@@ -457,17 +447,22 @@ export const SiteDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const saveSiteData = async (newData: SiteDataState): Promise<boolean> => {
     setIsSyncing(true);
+    const updatedState: SiteDataState = {
+      ...newData,
+      lastUpdated: Date.now()
+    };
+
     try {
-      setSiteData(newData);
+      setSiteData(updatedState);
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedState));
       } catch (e) {
         console.error('LocalStorage save error:', e);
       }
 
       // Explicit write to Firebase Firestore
       const docRef = doc(db, 'site_cms', 'main_config');
-      await setDoc(docRef, newData, { merge: true });
+      await setDoc(docRef, updatedState, { merge: true });
       setIsSyncing(false);
       return true;
     } catch (err: any) {

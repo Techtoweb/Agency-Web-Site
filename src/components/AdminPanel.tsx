@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   X,
@@ -27,7 +27,11 @@ import {
   Tag,
   Star,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Save,
+  Database,
+  Loader2,
+  AlertTriangle
 } from 'lucide-react';
 import { useSiteData } from '../data/siteDataContext';
 import { BrandLogo } from './BrandLogo';
@@ -41,6 +45,10 @@ import {
   CustomPageSection,
   LeadInquiry,
   UserProfile,
+  HeroContentConfig,
+  SiteSettingsConfig,
+  SectionVisibilityConfig,
+  SiteDataState,
   isAuthorizedAdminEmail
 } from '../types';
 
@@ -63,34 +71,27 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 }) => {
   const {
     siteData,
-    updateHero,
-    updateSiteSettings,
-    addCategory,
-    updateCategory,
-    deleteCategory,
-    addSubService,
-    updateSubService,
-    deleteSubService,
-    addProject,
-    updateProject,
-    deleteProject,
-    updateStats,
-    addProcessStep,
-    updateProcessSteps,
-    deleteProcessStep,
-    addTestimonial,
-    updateTestimonials,
-    deleteTestimonial,
-    toggleSectionVisibility,
-    addCustomSection,
-    updateCustomSection,
-    deleteCustomSection,
-    updateLeadStatus,
-    deleteLead,
+    saveSiteData,
+    isSyncing,
     resetToDefaults,
     importJsonData,
     exportJsonData
   } = useSiteData();
+
+  // Local draft state: all changes stay staged until explicitly saved
+  const [draftData, setDraftData] = useState<SiteDataState>(siteData);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Sync draft data whenever admin panel is opened with fresh siteData
+  useEffect(() => {
+    if (isOpen) {
+      setDraftData(siteData);
+    }
+  }, [isOpen, siteData]);
+
+  const hasUnsavedChanges = useMemo(() => {
+    return JSON.stringify(draftData) !== JSON.stringify(siteData);
+  }, [draftData, siteData]);
 
   const [activeTab, setActiveTab] = useState<AdminTab>(initialTab || 'services');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -124,7 +125,178 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  // Explicit Save Function to Firestore and Local Storage
+  const handleSaveToDatabase = async () => {
+    setIsSaving(true);
+    try {
+      const success = await saveSiteData(draftData);
+      if (success) {
+        showToast('✓ সব পরিবর্তন ডাটাবেজে সফলভাবে সেভ করা হয়েছে! (All changes saved to database!)');
+      } else {
+        showToast('✓ Changes saved to local storage.');
+      }
+    } catch (err: any) {
+      showToast('✓ Changes saved locally.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDiscardChanges = () => {
+    setDraftData(siteData);
+    showToast('অসংরক্ষিত পরিবর্তনগুলো বাতিল করা হয়েছে (Discarded unsaved changes).');
+  };
+
+  // Draft Mutations
+  const updateDraftHero = (hero: Partial<HeroContentConfig>) => {
+    setDraftData((prev) => ({ ...prev, hero: { ...prev.hero, ...hero } }));
+  };
+
+  const updateDraftSettings = (settings: Partial<SiteSettingsConfig>) => {
+    setDraftData((prev) => ({ ...prev, siteSettings: { ...prev.siteSettings, ...settings } }));
+  };
+
+  const addDraftCategory = (category: ServiceCategoryDetail) => {
+    setDraftData((prev) => ({ ...prev, categories: [...prev.categories, category] }));
+  };
+
+  const updateDraftCategory = (id: string, updated: Partial<ServiceCategoryDetail>) => {
+    setDraftData((prev) => ({
+      ...prev,
+      categories: prev.categories.map((c) => (c.id === id ? { ...c, ...updated } : c))
+    }));
+  };
+
+  const deleteDraftCategory = (id: string) => {
+    setDraftData((prev) => ({
+      ...prev,
+      categories: prev.categories.filter((c) => c.id !== id)
+    }));
+  };
+
+  const addDraftSubService = (categoryId: string, sub: SubServiceItem) => {
+    setDraftData((prev) => ({
+      ...prev,
+      categories: prev.categories.map((cat) =>
+        cat.id === categoryId ? { ...cat, subServices: [...(cat.subServices || []), sub] } : cat
+      )
+    }));
+  };
+
+  const updateDraftSubService = (categoryId: string, sub: SubServiceItem) => {
+    setDraftData((prev) => ({
+      ...prev,
+      categories: prev.categories.map((cat) =>
+        cat.id === categoryId
+          ? { ...cat, subServices: cat.subServices.map((s) => (s.id === sub.id ? sub : s)) }
+          : cat
+      )
+    }));
+  };
+
+  const deleteDraftSubService = (categoryId: string, subId: string) => {
+    setDraftData((prev) => ({
+      ...prev,
+      categories: prev.categories.map((cat) =>
+        cat.id === categoryId
+          ? { ...cat, subServices: cat.subServices.filter((s) => s.id !== subId) }
+          : cat
+      )
+    }));
+  };
+
+  const addDraftProject = (project: ProjectItem) => {
+    setDraftData((prev) => ({ ...prev, projects: [project, ...prev.projects] }));
+  };
+
+  const updateDraftProject = (id: string, updated: Partial<ProjectItem>) => {
+    setDraftData((prev) => ({
+      ...prev,
+      projects: prev.projects.map((p) => (p.id === id ? { ...p, ...updated } : p))
+    }));
+  };
+
+  const deleteDraftProject = (id: string) => {
+    setDraftData((prev) => ({
+      ...prev,
+      projects: prev.projects.filter((p) => p.id !== id)
+    }));
+  };
+
+  const updateDraftStats = (stats: StatItem[]) => {
+    setDraftData((prev) => ({ ...prev, stats }));
+  };
+
+  const addDraftProcessStep = (step: ProcessStep) => {
+    setDraftData((prev) => ({ ...prev, processSteps: [...prev.processSteps, step] }));
+  };
+
+  const updateDraftProcessSteps = (steps: ProcessStep[]) => {
+    setDraftData((prev) => ({ ...prev, processSteps: steps }));
+  };
+
+  const deleteDraftProcessStep = (number: string) => {
+    setDraftData((prev) => ({
+      ...prev,
+      processSteps: prev.processSteps.filter((s) => s.number !== number)
+    }));
+  };
+
+  const addDraftTestimonial = (item: TestimonialItem) => {
+    setDraftData((prev) => ({ ...prev, testimonials: [item, ...prev.testimonials] }));
+  };
+
+  const updateDraftTestimonials = (testimonials: TestimonialItem[]) => {
+    setDraftData((prev) => ({ ...prev, testimonials }));
+  };
+
+  const deleteDraftTestimonial = (id: string) => {
+    setDraftData((prev) => ({
+      ...prev,
+      testimonials: prev.testimonials.filter((t) => t.id !== id)
+    }));
+  };
+
+  const toggleDraftSectionVisibility = (sectionKey: keyof SectionVisibilityConfig, isVisible: boolean) => {
+    setDraftData((prev) => ({
+      ...prev,
+      sectionsVisibility: { ...prev.sectionsVisibility, [sectionKey]: isVisible }
+    }));
+  };
+
+  const addDraftCustomSection = (section: CustomPageSection) => {
+    setDraftData((prev) => ({ ...prev, customSections: [...prev.customSections, section] }));
+  };
+
+  const updateDraftCustomSection = (id: string, section: Partial<CustomPageSection>) => {
+    setDraftData((prev) => ({
+      ...prev,
+      customSections: prev.customSections.map((s) => (s.id === id ? { ...s, ...section } : s))
+    }));
+  };
+
+  const deleteDraftCustomSection = (id: string) => {
+    setDraftData((prev) => ({
+      ...prev,
+      customSections: prev.customSections.filter((s) => s.id !== id)
+    }));
+  };
+
+  const updateDraftLeadStatus = (id: string, status: LeadInquiry['status']) => {
+    setDraftData((prev) => ({
+      ...prev,
+      leads: prev.leads.map((l) => (l.id === id ? { ...l, status } : l))
+    }));
+  };
+
+  const deleteDraftLead = (id: string) => {
+    setDraftData((prev) => ({
+      ...prev,
+      leads: prev.leads.filter((l) => l.id !== id)
+    }));
   };
 
   const handleLogoFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -144,8 +316,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result as string;
-      updateSiteSettings({ logoUrl: result });
-      showToast('✨ Logo uploaded successfully! Updated in Header and Footer.');
+      updateDraftSettings({ logoUrl: result });
+      showToast('✨ Logo staged in draft! Click "Save Changes to Database" to apply.');
     };
     reader.onerror = () => {
       alert('Failed to read image file. Please try again.');
@@ -237,30 +409,70 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         className="w-full max-w-7xl h-[92vh] bg-white rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-black/10"
       >
         {/* Top Header */}
-        <div className="px-6 py-4 border-b border-black/10 bg-surface-container flex items-center justify-between shrink-0">
+        <div className="px-4 sm:px-6 py-3.5 border-b border-black/10 bg-surface-container flex flex-wrap items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-primary text-white flex items-center justify-center shadow-md">
+            <div className="w-10 h-10 rounded-2xl bg-primary text-white flex items-center justify-center shadow-md shrink-0">
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold text-[#191c1d]">Tech To Web — Master CMS & Admin Panel</h2>
-                <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-800 text-[10px] font-mono font-bold">
-                  LIVE EDIT MODE
-                </span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-base sm:text-lg font-bold text-[#191c1d]">Tech To Web — Master CMS & Admin Panel</h2>
+                {hasUnsavedChanges ? (
+                  <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-mono font-bold animate-pulse">
+                    <span className="w-2 h-2 rounded-full bg-amber-500" />
+                    Unsaved Changes (অসংরক্ষিত পরিবর্তন)
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-mono font-bold">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                    Database Synced (সেভ করা আছে)
+                  </span>
+                )}
               </div>
-              <p className="text-xs font-mono text-[#594139]">
-                Full site content control: edit titles, photos, services, projects, pages, and leads in real time.
+              <p className="text-[11px] sm:text-xs font-mono text-[#594139] hidden sm:block">
+                Edit titles, photos, logo, services, projects, and click Save Changes to persist to database.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200/80 text-amber-900 text-xs font-mono">
-              <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
-              <span className="font-bold">Admin:</span>
-              <span className="text-amber-800">techtowebadmin@gmail.com</span>
-            </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Discard button if changes exist */}
+            {hasUnsavedChanges && (
+              <button
+                type="button"
+                onClick={handleDiscardChanges}
+                disabled={isSaving}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-mono font-bold bg-white border border-rose-200 text-rose-700 hover:bg-rose-50 transition-all cursor-pointer shadow-xs"
+                title="Discard unsaved changes"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Discard (বাতিল)</span>
+              </button>
+            )}
+
+            {/* Prominent Save Changes Button */}
+            <button
+              type="button"
+              onClick={handleSaveToDatabase}
+              disabled={isSaving}
+              className={`inline-flex items-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs font-mono font-bold transition-all shadow-md cursor-pointer ${
+                hasUnsavedChanges
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white ring-2 ring-emerald-400/50 shadow-emerald-600/30 animate-pulse'
+                  : 'bg-primary hover:bg-primary-container text-white'
+              }`}
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" />
+                  <span>Save Changes (ডাটাবেজে সেভ করুন)</span>
+                </>
+              )}
+            </button>
 
             <button
               onClick={() => {
@@ -273,15 +485,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 a.click();
                 showToast('Site data backup downloaded!');
               }}
-              className="hidden md:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-mono font-semibold bg-white border border-black/10 hover:border-primary/40 text-[#191c1d] transition-all cursor-pointer"
+              className="hidden lg:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-mono font-semibold bg-white border border-black/10 hover:border-primary/40 text-[#191c1d] transition-all cursor-pointer"
             >
               <Download className="w-3.5 h-3.5 text-primary" />
-              <span>Backup JSON</span>
+              <span>Backup</span>
             </button>
 
             <button
               onClick={onClose}
-              className="w-10 h-10 rounded-2xl bg-white border border-black/10 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition-all flex items-center justify-center text-[#594139] cursor-pointer"
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-white border border-black/10 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition-all flex items-center justify-center text-[#594139] cursor-pointer shrink-0"
             >
               <X className="w-5 h-5" />
             </button>
@@ -291,12 +503,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         {/* Navigation Tabs Bar */}
         <div className="px-6 border-b border-black/10 bg-white flex items-center gap-1 overflow-x-auto py-2 shrink-0 no-scrollbar">
           {[
-            { id: 'services', label: 'Services & Subservices', icon: Layers, count: siteData.categories.length },
-            { id: 'projects', label: 'Projects / Portfolio', icon: Briefcase, count: siteData.projects.length },
+            { id: 'services', label: 'Services & Subservices', icon: Layers, count: draftData.categories.length },
+            { id: 'projects', label: 'Projects / Portfolio', icon: Briefcase, count: draftData.projects.length },
             { id: 'sections', label: 'Pages & Section Toggles', icon: Sliders },
             { id: 'hero-content', label: 'Hero & Site Content', icon: FileText },
-            { id: 'testimonials-process', label: 'Testimonials & Steps', icon: Star, count: siteData.testimonials.length },
-            { id: 'leads', label: 'Inquiries & Leads', icon: Inbox, count: siteData.leads.length, badge: siteData.leads.filter(l => l.status === 'new').length },
+            { id: 'testimonials-process', label: 'Testimonials & Steps', icon: Star, count: draftData.testimonials.length },
+            { id: 'leads', label: 'Inquiries & Leads', icon: Inbox, count: draftData.leads.length, badge: draftData.leads.filter(l => l.status === 'new').length },
             { id: 'settings', label: 'Settings & Restore', icon: Settings }
           ].map((tab) => {
             const Icon = tab.icon;
@@ -339,7 +551,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <div>
                   <h3 className="text-xl font-bold text-[#191c1d]">Service Categories & Offerings</h3>
                   <p className="text-xs font-mono text-[#594139]">
-                    Add, edit, change images, deliverables, or delete services displayed on the website.
+                    Add, edit, change images, deliverables, or delete services. Click &quot;Save Changes&quot; to apply to database.
                   </p>
                 </div>
                 <button
@@ -353,7 +565,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
               {/* Categories Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {siteData.categories.map((cat) => (
+                {draftData.categories.map((cat) => (
                   <div
                     key={cat.id}
                     className="bg-white rounded-3xl p-6 border border-black/10 shadow-xs hover:shadow-md transition-all space-y-4"
@@ -388,8 +600,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         <button
                           onClick={() => {
                             if (confirm(`Are you sure you want to delete category "${cat.title}" and its ${cat.subServices?.length || 0} sub-services?`)) {
-                              deleteCategory(cat.id);
-                              showToast(`Service "${cat.title}" deleted.`);
+                              deleteDraftCategory(cat.id);
+                              showToast(`Service "${cat.title}" deleted from draft. Click "Save Changes" to save.`);
                             }
                           }}
                           className="p-2 rounded-xl bg-surface-container hover:bg-rose-100 hover:text-rose-600 transition-all text-[#594139] cursor-pointer"
@@ -457,8 +669,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                               <button
                                 onClick={() => {
                                   if (confirm(`Delete sub-service "${sub.name}"?`)) {
-                                    deleteSubService(cat.id, sub.id);
-                                    showToast(`Sub-service deleted.`);
+                                    deleteDraftSubService(cat.id, sub.id);
+                                    showToast(`Sub-service deleted from draft.`);
                                   }
                                 }}
                                 className="p-1.5 rounded-lg hover:bg-rose-100 text-[#594139] hover:text-rose-600 transition-all cursor-pointer"
@@ -483,7 +695,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <div>
                   <h3 className="text-xl font-bold text-[#191c1d]">Portfolio & Live Client Projects</h3>
                   <p className="text-xs font-mono text-[#594139]">
-                    Add, edit titles, update screenshots/photos, live URLs, metrics, or delete projects.
+                    Add, edit titles, update screenshots/photos, live URLs, metrics, or delete projects. Click &quot;Save Changes&quot; to apply to database.
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -509,7 +721,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
               {/* Projects Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {siteData.projects
+                {draftData.projects
                   .filter((p) =>
                     p.title.toLowerCase().includes(projectSearch.toLowerCase()) ||
                     p.client.toLowerCase().includes(projectSearch.toLowerCase()) ||
@@ -591,8 +803,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                             <button
                               onClick={() => {
                                 if (confirm(`Are you sure you want to delete project "${project.title}"?`)) {
-                                  deleteProject(project.id);
-                                  showToast(`Project "${project.title}" deleted.`);
+                                  deleteDraftProject(project.id);
+                                  showToast(`Project "${project.title}" deleted from draft. Click "Save Changes" to save.`);
                                 }
                               }}
                               className="p-1.5 rounded-xl bg-surface-container hover:bg-rose-100 hover:text-rose-600 transition-all text-[#594139] cursor-pointer"
@@ -615,7 +827,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <div>
                 <h3 className="text-xl font-bold text-[#191c1d]">Page Sections & Custom Content Blocks</h3>
                 <p className="text-xs font-mono text-[#594139]">
-                  Show or hide major landing page sections, or add completely new custom sections to the site.
+                  Show or hide major landing page sections, or add completely new custom sections to the site. Click &quot;Save Changes&quot; to apply to database.
                 </p>
               </div>
 
@@ -637,7 +849,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     { key: 'cta', name: 'Call to Action Banner', desc: 'Final project proposal trigger' },
                     { key: 'footer', name: 'Site Footer', desc: 'Navigation, links, and SLA notes' }
                   ].map((sec) => {
-                    const isVisible = siteData.sectionsVisibility[sec.key as keyof typeof siteData.sectionsVisibility];
+                    const isVisible = draftData.sectionsVisibility[sec.key as keyof typeof draftData.sectionsVisibility];
                     return (
                       <div
                         key={sec.key}
@@ -663,8 +875,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
                         <button
                           onClick={() => {
-                            toggleSectionVisibility(sec.key as any, !isVisible);
-                            showToast(`${sec.name} is now ${!isVisible ? 'Visible' : 'Hidden'}`);
+                            toggleDraftSectionVisibility(sec.key as any, !isVisible);
+                            showToast(`${sec.name} toggled in draft. Click "Save Changes" to save.`);
                           }}
                           className={`p-2 rounded-xl transition-all cursor-pointer ${
                             isVisible
@@ -685,7 +897,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <div className="flex items-center justify-between">
                   <div>
                     <h4 className="text-sm font-mono font-bold text-[#191c1d] uppercase tracking-wider">
-                      Custom Added Sections ({siteData.customSections?.length || 0})
+                      Custom Added Sections ({draftData.customSections?.length || 0})
                     </h4>
                     <p className="text-xs text-[#594139]">
                       Create custom announcements, landing sections, or marketing highlights.
@@ -700,7 +912,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   </button>
                 </div>
 
-                {siteData.customSections?.length === 0 ? (
+                {draftData.customSections?.length === 0 ? (
                   <div className="text-center py-8 border-2 border-dashed border-black/10 rounded-2xl bg-surface-container/30">
                     <Sparkles className="w-8 h-8 text-[#594139] mx-auto mb-2 opacity-50" />
                     <p className="text-xs font-mono text-[#594139]">No custom sections added yet.</p>
@@ -710,7 +922,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {siteData.customSections?.map((cSec) => (
+                    {draftData.customSections?.map((cSec) => (
                       <div
                         key={cSec.id}
                         className="p-4 rounded-2xl bg-surface-container/50 border border-black/10 space-y-3"
@@ -732,8 +944,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                             <button
                               onClick={() => {
                                 if (confirm(`Delete custom section "${cSec.title}"?`)) {
-                                  deleteCustomSection(cSec.id);
-                                  showToast('Custom section deleted.');
+                                  deleteDraftCustomSection(cSec.id);
+                                  showToast('Custom section deleted from draft.');
                                 }
                               }}
                               className="p-1.5 rounded-lg hover:bg-rose-100 text-[#594139] hover:text-rose-600 transition-all cursor-pointer"
@@ -757,7 +969,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <div>
                 <h3 className="text-xl font-bold text-[#191c1d]">Hero Section & Branding Content</h3>
                 <p className="text-xs font-mono text-[#594139]">
-                  Update hero headlines, badge text, background photo, CTAs, and contact details.
+                  Update hero headlines, badge text, background photo, CTAs, and contact details. Click &quot;Save Changes&quot; to apply to database.
                 </p>
               </div>
 
@@ -774,8 +986,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     </label>
                     <input
                       type="text"
-                      value={siteData.hero.badge}
-                      onChange={(e) => updateHero({ badge: e.target.value })}
+                      value={draftData.hero.badge}
+                      onChange={(e) => updateDraftHero({ badge: e.target.value })}
                       className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-black/10 text-xs font-mono text-[#191c1d] focus:outline-none focus:border-primary"
                     />
                   </div>
@@ -786,8 +998,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     </label>
                     <input
                       type="text"
-                      value={siteData.hero.titlePrimary}
-                      onChange={(e) => updateHero({ titlePrimary: e.target.value })}
+                      value={draftData.hero.titlePrimary}
+                      onChange={(e) => updateDraftHero({ titlePrimary: e.target.value })}
                       className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-black/10 text-xs font-mono text-[#191c1d] focus:outline-none focus:border-primary"
                     />
                   </div>
@@ -798,8 +1010,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     </label>
                     <input
                       type="text"
-                      value={siteData.hero.titleHighlight}
-                      onChange={(e) => updateHero({ titleHighlight: e.target.value })}
+                      value={draftData.hero.titleHighlight}
+                      onChange={(e) => updateDraftHero({ titleHighlight: e.target.value })}
                       className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-black/10 text-xs font-mono text-[#191c1d] focus:outline-none focus:border-primary"
                     />
                   </div>
@@ -812,8 +1024,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     </label>
                     <input
                       type="text"
-                      value={siteData.hero.titleSecondary}
-                      onChange={(e) => updateHero({ titleSecondary: e.target.value })}
+                      value={draftData.hero.titleSecondary}
+                      onChange={(e) => updateDraftHero({ titleSecondary: e.target.value })}
                       className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-black/10 text-xs font-mono text-[#191c1d] focus:outline-none focus:border-primary"
                     />
                   </div>
@@ -824,8 +1036,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     </label>
                     <input
                       type="text"
-                      value={siteData.hero.statsBadge}
-                      onChange={(e) => updateHero({ statsBadge: e.target.value })}
+                      value={draftData.hero.statsBadge}
+                      onChange={(e) => updateDraftHero({ statsBadge: e.target.value })}
                       className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-black/10 text-xs font-mono text-[#191c1d] focus:outline-none focus:border-primary"
                     />
                   </div>
@@ -837,8 +1049,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   </label>
                   <textarea
                     rows={3}
-                    value={siteData.hero.subtitle}
-                    onChange={(e) => updateHero({ subtitle: e.target.value })}
+                    value={draftData.hero.subtitle}
+                    onChange={(e) => updateDraftHero({ subtitle: e.target.value })}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-black/10 text-xs text-[#191c1d] focus:outline-none focus:border-primary"
                   />
                 </div>
@@ -851,12 +1063,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   <div className="flex gap-3">
                     <input
                       type="text"
-                      value={siteData.hero.heroImage}
-                      onChange={(e) => updateHero({ heroImage: e.target.value })}
+                      value={draftData.hero.heroImage}
+                      onChange={(e) => updateDraftHero({ heroImage: e.target.value })}
                       className="flex-1 px-3.5 py-2.5 rounded-xl bg-surface border border-black/10 text-xs font-mono text-[#191c1d] focus:outline-none focus:border-primary"
                     />
                     <div className="w-14 h-11 rounded-xl overflow-hidden bg-black/10 border border-black/10 shrink-0">
-                      <img src={siteData.hero.heroImage} alt="Hero Preview" className="w-full h-full object-cover" />
+                      <img src={draftData.hero.heroImage} alt="Hero Preview" className="w-full h-full object-cover" />
                     </div>
                   </div>
                 </div>
@@ -872,20 +1084,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       </h4>
                       <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        Syncs Header & Footer Automatically
+                        Header & Footer Preview
                       </span>
                     </div>
                     <p className="text-xs font-mono text-[#594139] mt-0.5">
-                      Upload your photo / company logo or enter an image URL. It instantly updates across the Navbar header and the Footer.
+                      Upload your photo / company logo or enter an image URL. Click &quot;Save Changes&quot; to permanently store it.
                     </p>
                   </div>
 
-                  {siteData.siteSettings.logoUrl && (
+                  {draftData.siteSettings.logoUrl && (
                     <button
                       type="button"
                       onClick={() => {
-                        updateSiteSettings({ logoUrl: '' });
-                        showToast('Custom logo removed. Reverted to default monogram icon.');
+                        updateDraftSettings({ logoUrl: '' });
+                        showToast('Custom logo removed from draft.');
                       }}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-all cursor-pointer shrink-0 self-start sm:self-auto"
                     >
@@ -931,18 +1143,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         <input
                           type="text"
                           placeholder="https://example.com/logo.png"
-                          value={siteData.siteSettings.logoUrl || ''}
+                          value={draftData.siteSettings.logoUrl || ''}
                           onChange={(e) => {
-                            updateSiteSettings({ logoUrl: e.target.value });
+                            updateDraftSettings({ logoUrl: e.target.value });
                           }}
                           className="flex-1 px-3.5 py-2.5 rounded-xl bg-surface border border-black/10 text-xs font-mono text-[#191c1d] focus:outline-none focus:border-primary"
                         />
-                        {siteData.siteSettings.logoUrl && (
+                        {draftData.siteSettings.logoUrl && (
                           <button
                             type="button"
                             onClick={() => {
-                              updateSiteSettings({ logoUrl: '' });
-                              showToast('Logo cleared.');
+                              updateDraftSettings({ logoUrl: '' });
+                              showToast('Logo cleared from draft.');
                             }}
                             className="p-2.5 rounded-xl bg-surface-container hover:bg-rose-100 hover:text-rose-600 text-[#594139] transition-all cursor-pointer"
                             title="Clear logo"
@@ -962,7 +1174,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           <Eye className="w-3.5 h-3.5 text-primary" />
                           Live Header & Footer Preview
                         </span>
-                        <span className="text-[10px] font-mono text-[#594139]">Real-time Sync</span>
+                        <span className="text-[10px] font-mono text-[#594139]">Draft Staged</span>
                       </div>
 
                       {/* 1. Header Preview Box */}
@@ -970,8 +1182,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         <span className="text-[10px] font-mono text-[#594139]">Navbar Header (Light Background):</span>
                         <div className="p-3 rounded-xl bg-white border border-black/10 shadow-xs flex items-center">
                           <BrandLogo
-                            logoUrl={siteData.siteSettings.logoUrl}
-                            agencyName={siteData.siteSettings.agencyName || 'Tech To Web'}
+                            logoUrl={draftData.siteSettings.logoUrl}
+                            agencyName={draftData.siteSettings.agencyName || 'Tech To Web'}
                             size="sm"
                           />
                         </div>
@@ -982,8 +1194,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         <span className="text-[10px] font-mono text-[#594139]">Footer (Dark Surface):</span>
                         <div className="p-3 rounded-xl bg-[#191c1d] border border-white/10 shadow-xs flex items-center">
                           <BrandLogo
-                            logoUrl={siteData.siteSettings.logoUrl}
-                            agencyName={siteData.siteSettings.agencyName || 'Tech To Web'}
+                            logoUrl={draftData.siteSettings.logoUrl}
+                            agencyName={draftData.siteSettings.agencyName || 'Tech To Web'}
                             size="sm"
                             isDarkBg={true}
                           />
@@ -992,9 +1204,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     </div>
 
                     <div className="pt-2 border-t border-black/5 flex items-center justify-between text-[11px] font-mono text-[#594139]">
-                      <span>Status: {siteData.siteSettings.logoUrl ? 'Custom Image Active' : 'Default Monogram Active'}</span>
-                      {siteData.siteSettings.logoUrl && (
-                        <span className="text-emerald-700 font-bold">✓ Synced</span>
+                      <span>Status: {draftData.siteSettings.logoUrl ? 'Custom Image Staged' : 'Default Monogram Active'}</span>
+                      {hasUnsavedChanges && (
+                        <span className="text-amber-600 font-bold">Unsaved Draft</span>
                       )}
                     </div>
                   </div>
@@ -1014,8 +1226,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     </label>
                     <input
                       type="text"
-                      value={siteData.siteSettings.agencyName}
-                      onChange={(e) => updateSiteSettings({ agencyName: e.target.value })}
+                      value={draftData.siteSettings.agencyName}
+                      onChange={(e) => updateDraftSettings({ agencyName: e.target.value })}
                       className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-black/10 text-xs font-mono text-[#191c1d] focus:outline-none focus:border-primary"
                     />
                   </div>
@@ -1026,8 +1238,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     </label>
                     <input
                       type="email"
-                      value={siteData.siteSettings.email}
-                      onChange={(e) => updateSiteSettings({ email: e.target.value })}
+                      value={draftData.siteSettings.email}
+                      onChange={(e) => updateDraftSettings({ email: e.target.value })}
                       className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-black/10 text-xs font-mono text-[#191c1d] focus:outline-none focus:border-primary"
                     />
                   </div>
@@ -1038,8 +1250,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     </label>
                     <input
                       type="text"
-                      value={siteData.siteSettings.phone}
-                      onChange={(e) => updateSiteSettings({ phone: e.target.value, whatsapp: e.target.value })}
+                      value={draftData.siteSettings.phone}
+                      onChange={(e) => updateDraftSettings({ phone: e.target.value, whatsapp: e.target.value })}
                       className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-black/10 text-xs font-mono text-[#191c1d] focus:outline-none focus:border-primary"
                     />
                   </div>
@@ -1057,7 +1269,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   <div>
                     <h3 className="text-xl font-bold text-[#191c1d]">Client Testimonials & Quotes</h3>
                     <p className="text-xs font-mono text-[#594139]">
-                      Add, edit client recommendations, avatars, and verified metrics.
+                      Add, edit client recommendations, avatars, and verified metrics. Click &quot;Save Changes&quot; to apply to database.
                     </p>
                   </div>
                   <button
@@ -1070,7 +1282,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {siteData.testimonials.map((t) => (
+                  {draftData.testimonials.map((t) => (
                     <div
                       key={t.id}
                       className="bg-white rounded-2xl p-5 border border-black/10 shadow-xs flex flex-col justify-between space-y-3"
@@ -1092,8 +1304,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                             <button
                               onClick={() => {
                                 if (confirm(`Delete testimonial from ${t.author}?`)) {
-                                  deleteTestimonial(t.id);
-                                  showToast('Testimonial removed.');
+                                  deleteDraftTestimonial(t.id);
+                                  showToast('Testimonial removed from draft. Click "Save Changes" to save.');
                                 }
                               }}
                               className="p-1.5 rounded-lg hover:bg-rose-100 text-[#594139] hover:text-rose-600 transition-all cursor-pointer"
@@ -1123,7 +1335,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   <div>
                     <h3 className="text-xl font-bold text-[#191c1d]">6-Step Process Steps</h3>
                     <p className="text-xs font-mono text-[#594139]">
-                      Edit step titles, duration, descriptions, and deliverables.
+                      Edit step titles, duration, descriptions, and deliverables. Click &quot;Save Changes&quot; to apply to database.
                     </p>
                   </div>
                   <button
@@ -1136,7 +1348,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  {siteData.processSteps.map((step) => (
+                  {draftData.processSteps.map((step) => (
                     <div
                       key={step.number}
                       className="bg-white rounded-2xl p-5 border border-black/10 shadow-xs space-y-2"
@@ -1153,8 +1365,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           <button
                             onClick={() => {
                               if (confirm(`Delete step ${step.number} (${step.title})?`)) {
-                                deleteProcessStep(step.number);
-                                showToast(`Step ${step.number} deleted.`);
+                                deleteDraftProcessStep(step.number);
+                                showToast(`Step ${step.number} deleted from draft. Click "Save Changes" to save.`);
                               }
                             }}
                             className="p-1.5 rounded-lg hover:bg-rose-100 text-[#594139] hover:text-rose-600 transition-all cursor-pointer"
@@ -1256,8 +1468,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           <select
                             value={lead.status}
                             onChange={(e) => {
-                              updateLeadStatus(lead.id, e.target.value as any);
-                              showToast(`Status updated to "${e.target.value}"`);
+                              updateDraftLeadStatus(lead.id, e.target.value as any);
+                              showToast(`Status updated to "${e.target.value}" in draft.`);
                             }}
                             className="px-3 py-1.5 rounded-xl bg-surface border border-black/10 text-xs font-mono text-[#191c1d] focus:outline-none cursor-pointer"
                           >
@@ -1270,8 +1482,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           <button
                             onClick={() => {
                               if (confirm(`Delete inquiry from ${lead.name}?`)) {
-                                deleteLead(lead.id);
-                                showToast('Inquiry deleted.');
+                                deleteDraftLead(lead.id);
+                                showToast('Inquiry deleted from draft.');
                               }
                             }}
                             className="p-2 rounded-xl bg-surface-container hover:bg-rose-100 hover:text-rose-600 transition-all text-[#594139] cursor-pointer"
@@ -1306,20 +1518,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       </h4>
                       <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        Auto-Updates Navbar & Footer
+                        Header & Footer Preview
                       </span>
                     </div>
                     <p className="text-xs font-mono text-[#594139] mt-0.5">
-                      Upload your logo file or provide an image URL. It will automatically update the Header and Footer.
+                      Upload your logo file or provide an image URL. Click &quot;Save Changes&quot; to apply across the entire site.
                     </p>
                   </div>
 
-                  {siteData.siteSettings.logoUrl && (
+                  {draftData.siteSettings.logoUrl && (
                     <button
                       type="button"
                       onClick={() => {
-                        updateSiteSettings({ logoUrl: '' });
-                        showToast('Custom logo removed. Reverted to default monogram icon.');
+                        updateDraftSettings({ logoUrl: '' });
+                        showToast('Custom logo removed from draft.');
                       }}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-all cursor-pointer shrink-0 self-start sm:self-auto"
                     >
@@ -1365,18 +1577,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         <input
                           type="text"
                           placeholder="https://example.com/logo.png"
-                          value={siteData.siteSettings.logoUrl || ''}
+                          value={draftData.siteSettings.logoUrl || ''}
                           onChange={(e) => {
-                            updateSiteSettings({ logoUrl: e.target.value });
+                            updateDraftSettings({ logoUrl: e.target.value });
                           }}
                           className="flex-1 px-3.5 py-2.5 rounded-xl bg-surface border border-black/10 text-xs font-mono text-[#191c1d] focus:outline-none focus:border-primary"
                         />
-                        {siteData.siteSettings.logoUrl && (
+                        {draftData.siteSettings.logoUrl && (
                           <button
                             type="button"
                             onClick={() => {
-                              updateSiteSettings({ logoUrl: '' });
-                              showToast('Logo cleared.');
+                              updateDraftSettings({ logoUrl: '' });
+                              showToast('Logo cleared from draft.');
                             }}
                             className="p-2.5 rounded-xl bg-surface-container hover:bg-rose-100 hover:text-rose-600 text-[#594139] transition-all cursor-pointer"
                             title="Clear logo"
@@ -1396,7 +1608,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           <Eye className="w-3.5 h-3.5 text-primary" />
                           Live Header & Footer Preview
                         </span>
-                        <span className="text-[10px] font-mono text-[#594139]">Real-time</span>
+                        <span className="text-[10px] font-mono text-[#594139]">Draft Staged</span>
                       </div>
 
                       {/* Header Preview */}
@@ -1404,8 +1616,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         <span className="text-[10px] font-mono text-[#594139]">Header Preview:</span>
                         <div className="p-3 rounded-xl bg-white border border-black/10 shadow-xs flex items-center">
                           <BrandLogo
-                            logoUrl={siteData.siteSettings.logoUrl}
-                            agencyName={siteData.siteSettings.agencyName || 'Tech To Web'}
+                            logoUrl={draftData.siteSettings.logoUrl}
+                            agencyName={draftData.siteSettings.agencyName || 'Tech To Web'}
                             size="sm"
                           />
                         </div>
@@ -1416,8 +1628,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         <span className="text-[10px] font-mono text-[#594139]">Footer Preview:</span>
                         <div className="p-3 rounded-xl bg-[#191c1d] border border-white/10 shadow-xs flex items-center">
                           <BrandLogo
-                            logoUrl={siteData.siteSettings.logoUrl}
-                            agencyName={siteData.siteSettings.agencyName || 'Tech To Web'}
+                            logoUrl={draftData.siteSettings.logoUrl}
+                            agencyName={draftData.siteSettings.agencyName || 'Tech To Web'}
                             size="sm"
                             isDarkBg={true}
                           />
@@ -1426,9 +1638,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     </div>
 
                     <div className="pt-2 border-t border-black/5 flex items-center justify-between text-[11px] font-mono text-[#594139]">
-                      <span>Status: {siteData.siteSettings.logoUrl ? 'Custom Image Active' : 'Default Monogram Active'}</span>
-                      {siteData.siteSettings.logoUrl && (
-                        <span className="text-emerald-700 font-bold">✓ Synced</span>
+                      <span>Status: {draftData.siteSettings.logoUrl ? 'Custom Image Staged' : 'Default Monogram Active'}</span>
+                      {hasUnsavedChanges && (
+                        <span className="text-amber-600 font-bold">Unsaved Draft</span>
                       )}
                     </div>
                   </div>
@@ -1539,11 +1751,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               initial={editingCategory || undefined}
               onSave={(cat) => {
                 if (editingCategory) {
-                  updateCategory(cat.id, cat);
-                  showToast(`Category "${cat.title}" updated.`);
+                  updateDraftCategory(cat.id, cat);
+                  showToast(`Category "${cat.title}" updated in draft. Click "Save Changes" to save.`);
                 } else {
-                  addCategory(cat);
-                  showToast(`Category "${cat.title}" created.`);
+                  addDraftCategory(cat);
+                  showToast(`Category "${cat.title}" created in draft. Click "Save Changes" to save.`);
                 }
                 setEditingCategory(null);
                 setIsNewCategoryModal(false);
@@ -1578,15 +1790,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
             <SubServiceForm
               initial={editingSubService?.sub}
-              categories={siteData.categories}
-              selectedCatId={selectedCatForSub || editingSubService?.categoryId || siteData.categories[0]?.id}
+              categories={draftData.categories}
+              selectedCatId={selectedCatForSub || editingSubService?.categoryId || draftData.categories[0]?.id}
               onSave={(catId, sub) => {
                 if (editingSubService) {
-                  updateSubService(catId, sub);
-                  showToast(`Sub-service "${sub.name}" updated.`);
+                  updateDraftSubService(catId, sub);
+                  showToast(`Sub-service "${sub.name}" updated in draft. Click "Save Changes" to save.`);
                 } else {
-                  addSubService(catId, sub);
-                  showToast(`Sub-service "${sub.name}" added.`);
+                  addDraftSubService(catId, sub);
+                  showToast(`Sub-service "${sub.name}" added to draft. Click "Save Changes" to save.`);
                 }
                 setEditingSubService(null);
                 setIsNewSubModal(false);
@@ -1621,14 +1833,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
             <ProjectForm
               initial={editingProject || undefined}
-              categories={siteData.categories}
+              categories={draftData.categories}
               onSave={(project) => {
                 if (editingProject) {
-                  updateProject(project.id, project);
-                  showToast(`Project "${project.title}" updated.`);
+                  updateDraftProject(project.id, project);
+                  showToast(`Project "${project.title}" updated in draft. Click "Save Changes" to save.`);
                 } else {
-                  addProject(project);
-                  showToast(`Project "${project.title}" created.`);
+                  addDraftProject(project);
+                  showToast(`Project "${project.title}" created in draft. Click "Save Changes" to save.`);
                 }
                 setEditingProject(null);
                 setIsNewProjectModal(false);
@@ -1665,11 +1877,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               initial={editingCustomSection || undefined}
               onSave={(sec) => {
                 if (editingCustomSection) {
-                  updateCustomSection(sec.id, sec);
-                  showToast(`Section "${sec.title}" updated.`);
+                  updateDraftCustomSection(sec.id, sec);
+                  showToast(`Section "${sec.title}" updated in draft. Click "Save Changes" to save.`);
                 } else {
-                  addCustomSection(sec);
-                  showToast(`Section "${sec.title}" created.`);
+                  addDraftCustomSection(sec);
+                  showToast(`Section "${sec.title}" created in draft. Click "Save Changes" to save.`);
                 }
                 setEditingCustomSection(null);
                 setIsNewCustomSectionModal(false);
@@ -1706,11 +1918,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               initial={editingTestimonial || undefined}
               onSave={(t) => {
                 if (editingTestimonial) {
-                  updateTestimonials(siteData.testimonials.map((item) => (item.id === t.id ? t : item)));
-                  showToast(`Testimonial for ${t.author} updated.`);
+                  updateDraftTestimonials(draftData.testimonials.map((item) => (item.id === t.id ? t : item)));
+                  showToast(`Testimonial for ${t.author} updated in draft. Click "Save Changes" to save.`);
                 } else {
-                  addTestimonial(t);
-                  showToast(`Testimonial added.`);
+                  addDraftTestimonial(t);
+                  showToast(`Testimonial added to draft. Click "Save Changes" to save.`);
                 }
                 setEditingTestimonial(null);
                 setIsNewTestimonialModal(false);
@@ -1747,11 +1959,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               initial={editingStep || undefined}
               onSave={(step) => {
                 if (editingStep) {
-                  updateProcessSteps(siteData.processSteps.map((s) => (s.number === step.number ? step : s)));
-                  showToast(`Step ${step.number} updated.`);
+                  updateDraftProcessSteps(draftData.processSteps.map((s) => (s.number === step.number ? step : s)));
+                  showToast(`Step ${step.number} updated in draft. Click "Save Changes" to save.`);
                 } else {
-                  addProcessStep(step);
-                  showToast(`Step ${step.number} added.`);
+                  addDraftProcessStep(step);
+                  showToast(`Step ${step.number} added to draft. Click "Save Changes" to save.`);
                 }
                 setEditingStep(null);
                 setIsNewStepModal(false);
