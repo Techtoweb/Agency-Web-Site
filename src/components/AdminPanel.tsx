@@ -3115,12 +3115,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
 // --- SUB-FORMS ---
 
-// Reusable Client-Side Compressed Image Upload Helper
+// Reusable Client-Side Compressed Image Upload Helper (Optimized for Retina Clarity & Fast Cloud Storage)
 export const compressImageFile = (
   file: File,
-  maxWidth = 1280,
-  maxHeight = 860,
-  quality = 0.85
+  maxWidth = 960,
+  maxHeight = 640,
+  quality = 0.76
 ): Promise<string> => {
   return new Promise((resolve, reject) => {
     if (!file.type.startsWith('image/')) {

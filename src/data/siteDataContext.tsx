@@ -287,42 +287,56 @@ export const SiteDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const initFirestore = async () => {
       try {
-        const docRef = doc(db, 'site_cms', 'main_config');
-        
-        // 1. Direct fetch for fast bootstrap on fresh machines / after git clone
-        const snap = await getDoc(docRef);
-        if (snap.exists() && isMounted) {
-          const remoteData = snap.data() as Partial<SiteDataState>;
-          if (remoteData && Object.keys(remoteData).length > 0) {
-            setSiteData((prev) => {
-              const localTimestamp = prev.lastUpdated || 0;
-              const remoteTimestamp = remoteData.lastUpdated || 0;
-              if (remoteTimestamp > 0 && remoteTimestamp < localTimestamp) {
-                return prev;
-              }
-              const merged: SiteDataState = {
-                ...prev,
-                ...remoteData,
-                lastUpdated: Math.max(localTimestamp, remoteTimestamp),
-                hero: { ...prev.hero, ...(remoteData.hero || {}) },
-                siteSettings: { ...prev.siteSettings, ...(remoteData.siteSettings || {}) },
-                sectionsVisibility: { ...prev.sectionsVisibility, ...(remoteData.sectionsVisibility || {}) },
-                categories: remoteData.categories || prev.categories,
-                projects: remoteData.projects || prev.projects,
-                stats: remoteData.stats || prev.stats,
-                processSteps: remoteData.processSteps || prev.processSteps,
-                testimonials: remoteData.testimonials || prev.testimonials,
-                customSections: remoteData.customSections || prev.customSections,
-                leads: remoteData.leads || prev.leads
-              };
-              try {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
-              } catch {}
-              return merged;
-            });
-            setDbStatus('connected');
-            setLastSyncedAt(new Date().toLocaleTimeString());
-          }
+        const mainDocRef = doc(db, 'site_cms', 'main_config');
+        const projectsDocRef = doc(db, 'site_cms', 'projects_data');
+        const categoriesDocRef = doc(db, 'site_cms', 'categories_data');
+
+        // 1. Direct parallel fetch for fast bootstrap on fresh machines / after git clone
+        const [mainSnap, projectsSnap, categoriesSnap] = await Promise.all([
+          getDoc(mainDocRef).catch(() => null),
+          getDoc(projectsDocRef).catch(() => null),
+          getDoc(categoriesDocRef).catch(() => null)
+        ]);
+
+        const remoteMain = mainSnap && mainSnap.exists() ? (mainSnap.data() as Partial<SiteDataState>) : {};
+        const remoteProjects = projectsSnap && projectsSnap.exists() ? projectsSnap.data()?.projects : null;
+        const remoteCategories = categoriesSnap && categoriesSnap.exists() ? categoriesSnap.data()?.categories : null;
+
+        const remoteData: Partial<SiteDataState> = {
+          ...remoteMain,
+          ...(remoteProjects ? { projects: remoteProjects } : {}),
+          ...(remoteCategories ? { categories: remoteCategories } : {})
+        };
+
+        if (Object.keys(remoteData).length > 0 && isMounted) {
+          setSiteData((prev) => {
+            const localTimestamp = prev.lastUpdated || 0;
+            const remoteTimestamp = remoteData.lastUpdated || 0;
+            if (remoteTimestamp > 0 && remoteTimestamp < localTimestamp) {
+              return prev;
+            }
+            const merged: SiteDataState = {
+              ...prev,
+              ...remoteData,
+              lastUpdated: Math.max(localTimestamp, remoteTimestamp),
+              hero: { ...prev.hero, ...(remoteData.hero || {}) },
+              siteSettings: { ...prev.siteSettings, ...(remoteData.siteSettings || {}) },
+              sectionsVisibility: { ...prev.sectionsVisibility, ...(remoteData.sectionsVisibility || {}) },
+              categories: remoteData.categories && remoteData.categories.length > 0 ? remoteData.categories : prev.categories,
+              projects: remoteData.projects && remoteData.projects.length > 0 ? remoteData.projects : prev.projects,
+              stats: remoteData.stats && remoteData.stats.length > 0 ? remoteData.stats : prev.stats,
+              processSteps: remoteData.processSteps && remoteData.processSteps.length > 0 ? remoteData.processSteps : prev.processSteps,
+              testimonials: remoteData.testimonials && remoteData.testimonials.length > 0 ? remoteData.testimonials : prev.testimonials,
+              customSections: remoteData.customSections || prev.customSections,
+              leads: remoteData.leads || prev.leads
+            };
+            try {
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+            } catch {}
+            return merged;
+          });
+          setDbStatus('connected');
+          setLastSyncedAt(new Date().toLocaleTimeString());
         }
       } catch (err: any) {
         console.info('Initial Firestore fetch status:', err?.message || 'Local cache active');
@@ -342,7 +356,9 @@ export const SiteDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     // 2. Real-time onSnapshot subscription for live multi-tab & multi-device updates
     try {
       const docRef = doc(db, 'site_cms', 'main_config');
-      const unsubscribe = onSnapshot(
+      const projectsDocRef = doc(db, 'site_cms', 'projects_data');
+
+      const unsubscribeMain = onSnapshot(
         docRef,
         (snapshot) => {
           if (snapshot.exists() && isMounted) {
@@ -394,9 +410,32 @@ export const SiteDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
       );
 
+      const unsubscribeProjects = onSnapshot(
+        projectsDocRef,
+        (snapshot) => {
+          if (snapshot.exists() && isMounted) {
+            const data = snapshot.data();
+            if (data?.projects && Array.isArray(data.projects) && data.projects.length > 0) {
+              setSiteData((prev) => {
+                const merged: SiteDataState = {
+                  ...prev,
+                  projects: data.projects
+                };
+                try {
+                  localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+                } catch {}
+                return merged;
+              });
+            }
+          }
+        },
+        () => {}
+      );
+
       return () => {
         isMounted = false;
-        unsubscribe();
+        unsubscribeMain();
+        unsubscribeProjects();
       };
     } catch (e) {
       console.warn('Could not initialize onSnapshot listener:', e);
@@ -876,11 +915,19 @@ export const TESTIMONIALS: TestimonialItem[] = ${JSON.stringify(data.testimonial
       console.error('LocalStorage save error:', e);
     }
 
-    // 3. Persist to Firebase Firestore with sanitized payload
+    // 3. Persist to Firebase Firestore with multi-document segmentation (ensures zero document size limit errors)
     try {
       const sanitized = sanitizeForFirestore(updatedState);
-      const docRef = doc(db, 'site_cms', 'main_config');
-      await setDoc(docRef, sanitized, { merge: true });
+      const mainDocRef = doc(db, 'site_cms', 'main_config');
+      const projectsDocRef = doc(db, 'site_cms', 'projects_data');
+      const categoriesDocRef = doc(db, 'site_cms', 'categories_data');
+
+      // Save main config, dedicated projects doc, and dedicated categories doc in parallel
+      await Promise.all([
+        setDoc(mainDocRef, sanitized, { merge: true }),
+        setDoc(projectsDocRef, { projects: sanitizeForFirestore(updatedState.projects), lastUpdated: Date.now() }, { merge: true }),
+        setDoc(categoriesDocRef, { categories: sanitizeForFirestore(updatedState.categories), lastUpdated: Date.now() }, { merge: true })
+      ]);
       
       setDbStatus('connected');
       setDbError(null);
