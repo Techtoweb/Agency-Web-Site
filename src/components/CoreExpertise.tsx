@@ -233,71 +233,7 @@ export const CoreExpertise: React.FC<CoreExpertiseProps> = ({
         </motion.p>
       </div>
 
-      {/* Top 5 Dominant Category Switcher Tabs */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-8">
-        {categoriesList.map((cat, idx) => {
-          const isSelected = selectedCategory === cat.id;
-          const gradientClass = getCategoryGradientClass(cat.id);
-
-          return (
-            <motion.button
-              key={cat.id}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.4, delay: idx * 0.05 }}
-              onClick={() => onSelectService(cat.id)}
-              className={`relative text-left p-4 sm:p-5 rounded-2xl sm:rounded-3xl transition-all duration-300 cursor-pointer overflow-hidden flex flex-col justify-between min-h-[140px] sm:min-h-[160px] ${
-                isSelected
-                  ? `${gradientClass} scale-[1.03] z-10`
-                  : 'bg-white hover:bg-surface-container border border-black/5 hover:border-black/15 shadow-xs hover:shadow-md text-[#191c1d]'
-              }`}
-            >
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span
-                    className={`text-[10px] sm:text-xs font-mono font-bold uppercase tracking-wider ${
-                      isSelected ? 'text-white/90' : 'text-primary'
-                    }`}
-                  >
-                    {cat.shortLabel}
-                  </span>
-                  {isSelected && (
-                    <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                  )}
-                </div>
-
-                <h4
-                  className={`text-sm sm:text-base font-extrabold leading-snug tracking-tight ${
-                    isSelected ? 'text-white' : 'text-[#191c1d]'
-                  }`}
-                >
-                  {cat.title}
-                </h4>
-              </div>
-
-              <div className="pt-2 border-t border-black/5 flex items-center justify-between">
-                <span
-                  className={`text-[10px] sm:text-xs font-mono font-bold ${
-                    isSelected ? 'text-white/90' : 'text-emerald-700 font-semibold'
-                  }`}
-                >
-                  {cat.startingPrice ? `From ${cat.startingPrice}` : (cat.stats?.label || 'Available')}
-                </span>
-                <span
-                  className={`text-[10px] font-mono font-bold ${
-                    isSelected ? 'text-white/90' : 'text-[#594139]'
-                  }`}
-                >
-                  {cat.subServices?.length || 0} Options
-                </span>
-              </div>
-            </motion.button>
-          );
-        })}
-      </div>
-
-      {/* DYNAMIC CATEGORY EXPLORER CONTAINER */}
+      {/* DYNAMIC SUB-CATEGORIES EXPLORER CONTAINER */}
       <div className="bg-surface-container-low/80 rounded-[32px] sm:rounded-[40px] p-6 sm:p-10 lg:p-12 border border-white/80 shadow-glass">
         {/* Header with Active Domain Details & Controls */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 mb-8 border-b border-surface-variant">

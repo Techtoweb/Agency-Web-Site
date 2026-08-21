@@ -51,31 +51,31 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
     );
   };
 
-  // Dimension scaling: Logo graphic/image enlarged for prominent visibility
+  // Dimension scaling: Carefully balanced for mobile and desktop screens
   const imgSizeClasses = {
-    sm: 'h-10 sm:h-11 max-w-[160px]',
-    md: 'h-12 sm:h-14 max-w-[220px] sm:max-w-[260px]',
-    lg: 'h-16 sm:h-20 max-w-[300px]',
-    xl: 'h-24 max-w-[380px]',
+    sm: 'h-8 sm:h-9 max-w-[120px] sm:max-w-[150px]',
+    md: 'h-8 sm:h-11 max-w-[140px] sm:max-w-[200px]',
+    lg: 'h-11 sm:h-16 max-w-[180px] sm:max-w-[260px]',
+    xl: 'h-14 sm:h-20 max-w-[220px] sm:max-w-[320px]',
   }[size];
 
   const monogramSizeClasses = {
-    sm: 'w-10 h-10 rounded-xl text-xs',
-    md: 'w-12 h-12 sm:w-14 sm:h-14 rounded-2xl text-sm',
-    lg: 'w-16 h-16 sm:w-18 sm:h-18 rounded-2xl text-base',
-    xl: 'w-22 h-22 rounded-3xl text-xl',
+    sm: 'w-7 h-7 sm:w-8 sm:h-8 rounded-lg text-[10px] sm:text-xs',
+    md: 'w-8 h-8 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl text-xs sm:text-sm',
+    lg: 'w-11 h-11 sm:w-15 sm:h-15 rounded-xl sm:rounded-2xl text-sm sm:text-base',
+    xl: 'w-14 h-14 sm:w-18 sm:h-18 rounded-2xl text-base sm:text-xl',
   }[size];
 
   const textSizeClasses = {
-    sm: 'text-lg sm:text-xl',
-    md: 'text-2xl sm:text-3xl',
-    lg: 'text-3xl sm:text-4xl',
-    xl: 'text-4xl sm:text-5xl',
+    sm: 'text-sm sm:text-base leading-tight font-bold',
+    md: 'text-base sm:text-2xl leading-tight font-bold',
+    lg: 'text-xl sm:text-3xl leading-tight font-bold',
+    xl: 'text-2xl sm:text-4xl leading-tight font-bold',
   }[size];
 
   return (
-    <div className={`inline-flex items-center gap-3 ${className}`}>
-      {/* Uploaded Logo Image or Default Monogram (slightly larger than text) */}
+    <div className={`inline-flex items-center gap-2 sm:gap-2.5 max-w-full ${className}`}>
+      {/* Uploaded Logo Image or Default Monogram */}
       {logoUrl ? (
         <img
           src={logoUrl}
@@ -84,17 +84,17 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
         />
       ) : (
         <div
-          className={`${monogramSizeClasses} bg-gradient-to-br from-[#2563eb] via-[#0f172a] to-[#ff6b35] p-[2px] shadow-lg shadow-black/10 group-hover:rotate-6 transition-transform duration-300 shrink-0 flex items-center justify-center`}
+          className={`${monogramSizeClasses} bg-gradient-to-br from-[#2563eb] via-[#0f172a] to-[#ff6b35] p-[1.5px] sm:p-[2px] shadow-sm group-hover:rotate-6 transition-transform duration-300 shrink-0 flex items-center justify-center`}
         >
           <div className="w-full h-full rounded-[inherit] bg-[#0f172a] flex items-center justify-center gap-0.5 font-mono font-black tracking-tighter">
-            <span className="text-[#38bdf8] drop-shadow-[0_0_8px_rgba(56,189,248,0.7)]">T</span>
-            <span className="text-[#ff6b35] drop-shadow-[0_0_8px_rgba(255,107,53,0.7)]">W</span>
+            <span className="text-[#38bdf8] drop-shadow-[0_0_6px_rgba(56,189,248,0.7)]">T</span>
+            <span className="text-[#ff6b35] drop-shadow-[0_0_6px_rgba(255,107,53,0.7)]">W</span>
           </div>
         </div>
       )}
 
       {showText && (
-        <div className={textSizeClasses}>
+        <div className={`${textSizeClasses} truncate`}>
           {renderStyledBrandName()}
         </div>
       )}

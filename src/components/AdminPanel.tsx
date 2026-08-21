@@ -958,16 +958,42 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       key={project.id}
                       className="bg-white rounded-3xl overflow-hidden border border-black/10 shadow-xs hover:shadow-md transition-all flex flex-col"
                     >
-                      {/* Image Thumbnail */}
+                      {/* Image Thumbnail with Direct Upload Overlay */}
                       <div className="relative h-44 bg-surface-container overflow-hidden group">
                         <img
                           src={project.image}
                           alt={project.title}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent pointer-events-none" />
                         
-                        <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
+                        {/* Quick Direct Photo Upload Overlay */}
+                        <label className="absolute inset-0 bg-black/65 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1.5 text-white cursor-pointer z-10 backdrop-blur-[2px] p-2 text-center">
+                          <div className="w-9 h-9 rounded-xl bg-primary text-white flex items-center justify-center shadow-lg">
+                            <Upload className="w-4 h-4" />
+                          </div>
+                          <span className="text-xs font-mono font-bold">Upload New Photo</span>
+                          <span className="text-[9px] font-mono text-white/80">(ছবি পরিবর্তন করুন)</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                try {
+                                  const optimizedUrl = await compressImageFile(file);
+                                  updateDraftProject(project.id, { image: optimizedUrl });
+                                  showToast(`✓ Photo for "${project.title}" updated! Click "Save Changes" to apply.`);
+                                } catch (err: any) {
+                                  alert(err?.message || 'Failed to upload photo');
+                                }
+                              }
+                            }}
+                          />
+                        </label>
+
+                        <div className="absolute top-3 left-3 flex flex-wrap gap-1.5 z-20 pointer-events-none">
                           <span className="px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md text-white font-mono text-[10px] font-bold">
                             {project.category.toUpperCase()}
                           </span>
@@ -978,7 +1004,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           )}
                         </div>
 
-                        <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-white">
+                        <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-white z-20 pointer-events-none">
                           <span className="text-xs font-mono font-bold truncate">{project.client}</span>
                           <span className="text-[10px] font-mono text-white/80">{project.year}</span>
                         </div>
@@ -1019,6 +1045,32 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         <div className="flex items-center justify-between pt-3 border-t border-black/5">
                           <span className="text-[10px] font-mono text-[#594139]">ID: {project.id}</span>
                           <div className="flex items-center gap-2">
+                            {/* Quick Photo Upload Button */}
+                            <label
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-surface-container hover:bg-emerald-50 hover:text-emerald-700 transition-all text-xs font-mono font-bold text-[#594139] cursor-pointer"
+                              title="Upload Photo from device"
+                            >
+                              <Upload className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">Photo</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={async (e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    try {
+                                      const optimizedUrl = await compressImageFile(file);
+                                      updateDraftProject(project.id, { image: optimizedUrl });
+                                      showToast(`✓ Photo for "${project.title}" updated! Click "Save Changes" to apply.`);
+                                    } catch (err: any) {
+                                      alert(err?.message || 'Failed to upload photo');
+                                    }
+                                  }
+                                }}
+                              />
+                            </label>
+
                             <button
                               onClick={() => setEditingProject(project)}
                               className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-surface-container hover:bg-primary/10 hover:text-primary transition-all text-xs font-mono font-bold text-[#191c1d] cursor-pointer"
@@ -3063,6 +3115,228 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
 // --- SUB-FORMS ---
 
+// Reusable Client-Side Compressed Image Upload Helper
+export const compressImageFile = (
+  file: File,
+  maxWidth = 1280,
+  maxHeight = 860,
+  quality = 0.85
+): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith('image/')) {
+      return reject(new Error('Please select a valid image file (PNG, JPG, WebP, GIF).'));
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth || height > maxHeight) {
+          if (width / height > maxWidth / maxHeight) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          return resolve(event.target?.result as string);
+        }
+
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const mimeType = file.type === 'image/png' || file.type === 'image/svg+xml' ? 'image/png' : 'image/jpeg';
+        const compressedDataUrl = canvas.toDataURL(mimeType, quality);
+        resolve(compressedDataUrl);
+      };
+      img.onerror = () => reject(new Error('Failed to load image for processing.'));
+      img.src = event.target?.result as string;
+    };
+    reader.onerror = () => reject(new Error('Failed to read image file.'));
+    reader.readAsDataURL(file);
+  });
+};
+
+export const ImageUploadField: React.FC<{
+  label: string;
+  value: string;
+  onChange: (newVal: string) => void;
+  helperText?: string;
+  aspectRatio?: 'video' | 'square' | 'auto';
+}> = ({ label, value, onChange, helperText, aspectRatio = 'video' }) => {
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [showUrlInput, setShowUrlInput] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+
+  const handleFile = async (file: File) => {
+    try {
+      setIsProcessing(true);
+      const optimizedUrl = await compressImageFile(file);
+      onChange(optimizedUrl);
+    } catch (err: any) {
+      alert(err?.message || 'Failed to upload photo.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLLabelElement>) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleFile(file);
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <label className="block font-bold text-[#191c1d]">{label}</label>
+        <button
+          type="button"
+          onClick={() => setShowUrlInput(!showUrlInput)}
+          className="text-[11px] font-mono text-primary hover:underline cursor-pointer flex items-center gap-1"
+        >
+          {showUrlInput ? '📁 Switch to Direct Upload' : '🔗 Paste Web URL instead'}
+        </button>
+      </div>
+
+      {/* Main Direct File Upload & Preview Box */}
+      <div className="space-y-2.5">
+        {value ? (
+          <div className="relative rounded-2xl overflow-hidden border border-black/10 bg-surface-container group">
+            <div className={`w-full ${aspectRatio === 'video' ? 'h-48' : 'h-40'} relative overflow-hidden bg-neutral-900`}>
+              <img
+                src={value}
+                alt="Selected preview"
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              />
+              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 p-2">
+                <label className="px-3.5 py-2 rounded-xl bg-white text-[#191c1d] font-mono text-xs font-bold shadow-md cursor-pointer hover:bg-surface-container flex items-center gap-1.5 transition-all">
+                  <Upload className="w-3.5 h-3.5 text-primary" />
+                  <span>Change Photo (ছবি পরিবর্তন)</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleFile(file);
+                    }}
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => onChange('')}
+                  className="p-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-mono text-xs font-bold shadow-md cursor-pointer transition-all"
+                  title="Remove Photo"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-3 bg-white border-t border-black/5 flex items-center justify-between text-[11px] font-mono text-[#594139]">
+              <span className="flex items-center gap-1 font-bold text-emerald-700">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                {value.startsWith('data:image') ? 'Direct Photo Attached (লোকাল ফটো সংযুক্ত)' : 'Image URL Connected'}
+              </span>
+              <label className="text-primary hover:underline cursor-pointer font-bold flex items-center gap-1">
+                <Upload className="w-3 h-3" /> Upload New
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFile(file);
+                  }}
+                />
+              </label>
+            </div>
+          </div>
+        ) : (
+          <label
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOver(true);
+            }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleDrop}
+            className={`group relative flex flex-col items-center justify-center p-6 rounded-2xl border-2 border-dashed transition-all cursor-pointer text-center ${
+              dragOver
+                ? 'border-primary bg-primary/5 scale-[1.01]'
+                : 'border-primary/30 hover:border-primary bg-surface/50 hover:bg-surface'
+            }`}
+          >
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleFile(file);
+              }}
+            />
+            <div className="w-12 h-12 rounded-2xl bg-primary/10 group-hover:bg-primary/20 text-primary flex items-center justify-center mb-2.5 transition-transform group-hover:scale-110 shadow-xs">
+              {isProcessing ? (
+                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+              ) : (
+                <Upload className="w-6 h-6" />
+              )}
+            </div>
+            <p className="text-xs font-bold text-[#191c1d]">
+              {isProcessing ? 'Processing & Optimizing Image...' : 'Click to Upload Direct Photo (মোবাইল বা পিসি থেকে ফটো দিন)'}
+            </p>
+            <p className="text-[11px] font-mono text-[#594139] mt-1">
+              Supports PNG, JPG, JPEG, WebP, GIF (Auto-compressed & Web Ready)
+            </p>
+          </label>
+        )}
+
+        {/* Optional Direct URL Input Field */}
+        {showUrlInput && (
+          <div className="pt-2 border-t border-black/5 space-y-1">
+            <label className="block text-[11px] font-mono text-[#594139]">Or paste Image URL:</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="https://images.unsplash.com/..."
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                className="flex-1 px-3 py-2 rounded-xl border border-black/10 text-[11px] bg-white font-mono"
+              />
+              {value && (
+                <button
+                  type="button"
+                  onClick={() => onChange('')}
+                  className="px-3 py-2 rounded-xl bg-surface-container text-[#594139] hover:text-rose-600 text-xs font-mono"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {helperText && (
+          <p className="text-[10px] font-mono text-[#594139]">{helperText}</p>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const CategoryForm: React.FC<{
   initial?: ServiceCategoryDetail;
   onSave: (cat: ServiceCategoryDetail) => void;
@@ -3150,15 +3424,13 @@ const CategoryForm: React.FC<{
         />
       </div>
 
-      <div>
-        <label className="block font-bold text-[#191c1d] mb-1">Hero Image URL</label>
-        <input
-          type="text"
-          value={image}
-          onChange={(e) => setImage(e.target.value)}
-          className="w-full px-3 py-2 rounded-xl border border-black/10 text-[11px]"
-        />
-      </div>
+      {/* Direct Image Upload for Category */}
+      <ImageUploadField
+        label="Category Hero Photo / Screenshot"
+        value={image}
+        onChange={(newImg) => setImage(newImg)}
+        helperText="Direct photo upload supported. Compressed automatically for instant page loading."
+      />
 
       <div className="grid grid-cols-2 gap-3">
         <div>
@@ -3461,20 +3733,13 @@ const ProjectForm: React.FC<{
         </div>
       </div>
 
-      <div>
-        <label className="block font-bold text-[#191c1d] mb-1">Screenshot / Image URL</label>
-        <div className="flex gap-3">
-          <input
-            type="text"
-            value={image}
-            onChange={(e) => setImage(e.target.value)}
-            className="flex-1 px-3 py-2 rounded-xl border border-black/10 text-[11px]"
-          />
-          <div className="w-14 h-10 rounded-xl overflow-hidden bg-black/10 border border-black/10 shrink-0">
-            <img src={image} alt="Preview" className="w-full h-full object-cover" />
-          </div>
-        </div>
-      </div>
+      {/* Direct Image Upload for Project */}
+      <ImageUploadField
+        label="Project Screenshot / Photo (প্রজেক্ট ফটো বা স্ক্রিনশট)"
+        value={image}
+        onChange={(newImg) => setImage(newImg)}
+        helperText="Direct photo upload from mobile/desktop supported. Automatically optimized & compressed for ultra-fast loading."
+      />
 
       <div className="grid grid-cols-2 gap-3">
         <div>

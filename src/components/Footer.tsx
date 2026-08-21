@@ -56,18 +56,18 @@ export const Footer: React.FC<FooterProps> = ({ onStartProject, onSelectService 
                 e.preventDefault();
                 scrollTo('home');
               }}
-              className="inline-flex items-center mb-4 group transition-transform duration-300 hover:scale-[1.02]"
+              className="inline-flex items-center mb-3 sm:mb-4 group transition-transform duration-300 hover:scale-[1.02] max-w-full"
             >
               <BrandLogo
                 logoUrl={settings.logoUrl}
                 agencyName={settings.agencyName}
-                size="md"
+                size="sm"
               />
             </a>
-            <p className="text-sm text-[#594139] leading-relaxed mb-6">
+            <p className="text-xs sm:text-sm text-[#594139] leading-relaxed mb-5 sm:mb-6">
               {settings.tagline}
             </p>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 font-mono text-xs font-bold border border-emerald-200">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 font-mono text-[11px] sm:text-xs font-bold border border-emerald-200">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span>Accepting New Client Projects</span>
             </div>
